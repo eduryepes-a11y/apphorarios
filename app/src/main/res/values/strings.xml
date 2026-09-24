@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Horarios</string>
+    <string name="widget_name">Horarios · Hoy</string>
+    <string name="widget_description">Lo que tienes ahora y lo que viene hoy</string>
+</resources>
