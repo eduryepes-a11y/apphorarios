@@ -1,5 +1,8 @@
+@file:OptIn(ExperimentalComposeUiApi::class)
+
 package com.eduardo.horarios.ui.home
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import android.Manifest
 import android.app.AlarmManager
 import android.content.Context
@@ -82,8 +85,18 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.eduardo.horarios.DAY_NAMES
-import com.eduardo.horarios.DAY_SHORT
+import com.eduardo.horarios.R
+import com.eduardo.horarios.dayName
+import com.eduardo.horarios.dayShort
+import com.eduardo.horarios.dateOfThisWeek
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextDecoration
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.ScheduleEntity
@@ -95,7 +108,6 @@ import com.eduardo.horarios.reminderShort
 import com.eduardo.horarios.todayIndex
 import com.eduardo.horarios.ui.components.EmojiBubble
 import com.eduardo.horarios.ui.components.Pill
-import com.eduardo.horarios.ui.theme.Indigo
 import com.eduardo.horarios.ui.theme.StatusBarIcons
 import com.eduardo.horarios.ui.theme.headerBrush
 import com.eduardo.horarios.ui.theme.paletteColor
@@ -105,14 +117,14 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val SPANISH = Locale.forLanguageTag("es-ES")
 
 @Composable
 fun HomeScreen(
     onOpenSchedules: () -> Unit,
     onAddActivity: (day: Int) -> Unit,
     onEditActivity: (id: Long) -> Unit,
-    onOpenNotifications: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
     vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
 ) {
     StatusBarIcons(darkIcons = false)
@@ -143,7 +155,7 @@ fun HomeScreen(
                 ExtendedFloatingActionButton(
                     onClick = { onAddActivity(selectedDay) },
                     icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                    text = { Text("Añadir") },
+                    text = { Text(stringResource(R.string.add)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(20.dp),
@@ -164,7 +176,8 @@ fun HomeScreen(
                     todayActs = todayActs,
                     nowMinute = nowMinute,
                     onOpenSchedules = onOpenSchedules,
-                    onOpenNotifications = onOpenNotifications,
+                    onOpenSettings = onOpenSettings,
+                    onOpenStats = onOpenStats,
                 )
             }
             item(key = "banners") { PermissionBanners(vm) }
@@ -209,11 +222,16 @@ fun HomeScreen(
                     item(key = "empty") { EmptyDay() }
                 }
                 items(dayActs, key = { it.id }) { act ->
+                    val selectedEpoch = dateOfThisWeek(selectedDay).toEpochDay()
+                    val isDone = (act.id to selectedEpoch) in state.done
                     TimelineRow(
                         activity = act,
                         isToday = selectedDay == today,
                         nowMinute = nowMinute,
                         isLast = act == dayActs.last(),
+                        done = isDone,
+                        canMarkDone = selectedEpoch <= LocalDate.now().toEpochDay(),
+                        onToggleDone = { vm.setDone(act.id, selectedEpoch, !isDone) },
                         onClick = { onEditActivity(act.id) },
                         modifier = Modifier.animateItem(),
                     )
@@ -237,8 +255,8 @@ private fun ViewModeToggle(weekMode: Boolean, onChange: (Boolean) -> Unit) {
             .padding(start = 16.dp, end = 16.dp, top = 20.dp),
     ) {
         Row(Modifier.padding(4.dp)) {
-            ModeSegment("Día", Icons.Rounded.ViewDay, selected = !weekMode, modifier = Modifier.weight(1f)) { onChange(false) }
-            ModeSegment("Semana", Icons.Rounded.CalendarViewWeek, selected = weekMode, modifier = Modifier.weight(1f)) { onChange(true) }
+            ModeSegment(stringResource(R.string.view_day), Icons.Rounded.ViewDay, selected = !weekMode, modifier = Modifier.weight(1f)) { onChange(false) }
+            ModeSegment(stringResource(R.string.view_week), Icons.Rounded.CalendarViewWeek, selected = weekMode, modifier = Modifier.weight(1f)) { onChange(true) }
         }
     }
 }
@@ -283,11 +301,11 @@ private fun WeekTitle(acts: List<ActivityEntity>) {
             .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        Text("Tu semana", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.your_week), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.weight(1f))
         if (acts.isNotEmpty()) {
             Text(
-                "${durationLabel(totalMin)} programadas",
+                stringResource(R.string.week_scheduled, durationLabel(LocalContext.current, totalMin)),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -305,14 +323,17 @@ private fun Header(
     todayActs: List<ActivityEntity>,
     nowMinute: Int,
     onOpenSchedules: () -> Unit,
-    onOpenNotifications: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenStats: () -> Unit,
 ) {
-    val base = schedule?.let { paletteColor(it.colorIndex) } ?: Indigo
+    val base = schedule?.let { paletteColor(it.colorIndex) } ?: MaterialTheme.colorScheme.primary
     val animatedBase by animateColorAsState(base, label = "headerColor")
-    val dateText = remember {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val pattern = stringResource(R.string.date_header_pattern)
+    val dateText = remember(locale, pattern) {
         LocalDate.now()
-            .format(DateTimeFormatter.ofPattern("EEEE, d 'de' MMMM", SPANISH))
-            .replaceFirstChar { it.titlecase(SPANISH) }
+            .format(DateTimeFormatter.ofPattern(pattern, locale))
+            .replaceFirstChar { it.titlecase(locale) }
     }
 
     Box(
@@ -352,7 +373,7 @@ private fun Header(
                             .padding(vertical = 2.dp),
                     ) {
                         Text(
-                            text = schedule?.let { "${it.emoji}  ${it.name}" } ?: "Sin horario",
+                            text = schedule?.let { "${it.emoji}  ${it.name}" } ?: stringResource(R.string.no_schedule),
                             style = MaterialTheme.typography.headlineSmall,
                             color = Color.White,
                             maxLines = 1,
@@ -361,36 +382,34 @@ private fun Header(
                         )
                         Icon(
                             Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = "Cambiar horario",
+                            contentDescription = stringResource(R.string.change_schedule),
                             tint = Color.White,
                         )
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .clickable(onClick = onOpenNotifications),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.NotificationsActive, contentDescription = "Avisos", tint = Color.White)
-                }
+                HeaderButton(Icons.Rounded.Insights, stringResource(R.string.stats), onOpenStats)
                 Spacer(Modifier.width(8.dp))
-                Box(
-                    modifier = Modifier
-                        .size(46.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.18f))
-                        .clickable(onClick = onOpenSchedules),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.CalendarMonth, contentDescription = "Mis horarios", tint = Color.White)
-                }
+                HeaderButton(Icons.Rounded.CalendarMonth, stringResource(R.string.my_schedules), onOpenSchedules)
+                Spacer(Modifier.width(8.dp))
+                HeaderButton(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings)
             }
             Spacer(Modifier.height(18.dp))
             NowNextCard(schedule = schedule, todayActs = todayActs, nowMinute = nowMinute)
         }
+    }
+}
+
+@Composable
+private fun HeaderButton(icon: ImageVector, description: String, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }
 
@@ -400,6 +419,7 @@ private fun NowNextCard(
     todayActs: List<ActivityEntity>,
     nowMinute: Int,
 ) {
+    val context = LocalContext.current
     val current = todayActs.firstOrNull { nowMinute >= it.startMinute && nowMinute < it.endMinute }
     val next = todayActs.firstOrNull { it.startMinute > nowMinute }
 
@@ -412,9 +432,9 @@ private fun NowNextCard(
             when {
                 schedule == null -> GlassRow(
                     emoji = "🗓️",
-                    label = "EMPIEZA AQUÍ",
-                    title = "Crea tu primer horario",
-                    subtitle = "Organiza tu semana y recibe avisos",
+                    label = stringResource(R.string.start_here),
+                    title = stringResource(R.string.create_first_schedule),
+                    subtitle = stringResource(R.string.create_first_schedule_sub),
                 )
 
                 current != null -> {
@@ -422,9 +442,13 @@ private fun NowNextCard(
                     val done = (nowMinute - current.startMinute).coerceIn(0, total)
                     GlassRow(
                         emoji = current.emoji,
-                        label = "AHORA",
+                        label = stringResource(R.string.now_label),
                         title = current.title,
-                        subtitle = "${hm(current.startMinute)} – ${hm(current.endMinute)} · quedan ${durationLabel(total - done)}",
+                        subtitle = stringResource(
+                            R.string.now_subtitle,
+                            "${hm(current.startMinute)} – ${hm(current.endMinute)}",
+                            durationLabel(context, total - done),
+                        ),
                     )
                     Spacer(Modifier.height(14.dp))
                     LinearProgressIndicator(
@@ -441,7 +465,7 @@ private fun NowNextCard(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            "Después: ${next.emoji} ${next.title} a las ${hm(next.startMinute)}",
+                            stringResource(R.string.after_next, "${next.emoji} ${next.title}", hm(next.startMinute)),
                             color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
@@ -452,23 +476,27 @@ private fun NowNextCard(
 
                 next != null -> GlassRow(
                     emoji = next.emoji,
-                    label = "SIGUIENTE",
+                    label = stringResource(R.string.next_label),
                     title = next.title,
-                    subtitle = "A las ${hm(next.startMinute)} · en ${durationLabel(next.startMinute - nowMinute)}",
+                    subtitle = stringResource(
+                        R.string.next_subtitle,
+                        hm(next.startMinute),
+                        durationLabel(context, next.startMinute - nowMinute),
+                    ),
                 )
 
                 todayActs.isEmpty() -> GlassRow(
                     emoji = "🌤️",
-                    label = "HOY",
-                    title = "Día libre",
-                    subtitle = "No tienes nada programado hoy",
+                    label = stringResource(R.string.today_label),
+                    title = stringResource(R.string.day_free),
+                    subtitle = stringResource(R.string.day_free_sub),
                 )
 
                 else -> GlassRow(
                     emoji = "🎉",
-                    label = "HOY",
-                    title = "¡Día completado!",
-                    subtitle = "Ya no te queda nada más por hoy",
+                    label = stringResource(R.string.today_label),
+                    title = stringResource(R.string.day_completed),
+                    subtitle = stringResource(R.string.day_completed_sub),
                 )
             }
         }
@@ -524,9 +552,9 @@ private fun PermissionBanners(vm: HomeViewModel) {
         AnimatedVisibility(!notificationsOn) {
             Banner(
                 icon = Icons.Rounded.NotificationsOff,
-                title = "Notificaciones desactivadas",
-                text = "Actívalas para que te avise de tus actividades.",
-                action = "Activar",
+                title = stringResource(R.string.banner_notif_title),
+                text = stringResource(R.string.banner_notif_text),
+                action = stringResource(R.string.enable),
                 onAction = {
                     val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
                         .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
@@ -537,9 +565,9 @@ private fun PermissionBanners(vm: HomeViewModel) {
         AnimatedVisibility(notificationsOn && !exactOn) {
             Banner(
                 icon = Icons.Rounded.AlarmOn,
-                title = "Avisos puntuales",
-                text = "Permite las alarmas exactas para que los avisos lleguen a su hora.",
-                action = "Permitir",
+                title = stringResource(R.string.banner_exact_title),
+                text = stringResource(R.string.banner_exact_text),
+                action = stringResource(R.string.allow),
                 onAction = {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                         context.startActivity(
@@ -626,7 +654,7 @@ private fun DaySelector(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(DAY_SHORT[d], style = MaterialTheme.typography.titleMedium, color = fg)
+                    Text(dayShort(LocalContext.current, d), style = MaterialTheme.typography.titleMedium, color = fg)
                     Spacer(Modifier.height(6.dp))
                     Box(
                         Modifier
@@ -655,15 +683,15 @@ private fun DayTitle(day: Int, isToday: Boolean, acts: List<ActivityEntity>) {
             .padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
         verticalAlignment = Alignment.Bottom,
     ) {
-        Text(DAY_NAMES[day], style = MaterialTheme.typography.titleLarge)
+        Text(dayName(LocalContext.current, day), style = MaterialTheme.typography.titleLarge)
         if (isToday) {
             Spacer(Modifier.width(8.dp))
-            Box(Modifier.padding(bottom = 4.dp)) { Pill("HOY", MaterialTheme.colorScheme.primary) }
+            Box(Modifier.padding(bottom = 4.dp)) { Pill(stringResource(R.string.today_badge), MaterialTheme.colorScheme.primary) }
         }
         Spacer(Modifier.weight(1f))
         if (acts.isNotEmpty()) {
             Text(
-                "${acts.size} ${if (acts.size == 1) "actividad" else "actividades"} · ${durationLabel(totalMin)}",
+                pluralStringResource(R.plurals.activities_count, acts.size, acts.size) + " · " + durationLabel(LocalContext.current, totalMin),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -681,6 +709,9 @@ private fun TimelineRow(
     isToday: Boolean,
     nowMinute: Int,
     isLast: Boolean,
+    done: Boolean,
+    canMarkDone: Boolean,
+    onToggleDone: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -693,7 +724,7 @@ private fun TimelineRow(
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .padding(horizontal = 16.dp)
-            .alpha(if (isPast) 0.5f else 1f),
+            .alpha(if (isPast && !done) 0.5f else 1f),
     ) {
         Column(
             modifier = Modifier
@@ -736,6 +767,9 @@ private fun TimelineRow(
             activity = activity,
             color = color,
             isNow = isNow,
+            done = done,
+            canMarkDone = canMarkDone,
+            onToggleDone = onToggleDone,
             onClick = onClick,
             modifier = Modifier
                 .weight(1f)
@@ -749,6 +783,9 @@ private fun ActivityCard(
     activity: ActivityEntity,
     color: Color,
     isNow: Boolean,
+    done: Boolean,
+    canMarkDone: Boolean,
+    onToggleDone: () -> Unit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -772,18 +809,20 @@ private fun ActivityCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         activity.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            textDecoration = if (done) TextDecoration.LineThrough else null,
+                        ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f, fill = false),
                     )
                     if (isNow) {
                         Spacer(Modifier.width(8.dp))
-                        Pill("AHORA", color)
+                        Pill(stringResource(R.string.now_badge), color)
                     }
                 }
                 Text(
-                    durationLabel(activity.endMinute - activity.startMinute),
+                    durationLabel(LocalContext.current, activity.endMinute - activity.startMinute),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -808,12 +847,39 @@ private fun ActivityCard(
                 )
                 if (hasReminder) {
                     Text(
-                        reminderShort(activity.reminderMinutes),
+                        reminderShort(LocalContext.current, activity.reminderMinutes),
                         fontSize = 10.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
+            if (canMarkDone) {
+                Spacer(Modifier.width(10.dp))
+                DoneButton(done = done, color = color, onClick = onToggleDone)
+            }
+        }
+    }
+}
+
+@Composable
+private fun DoneButton(done: Boolean, color: Color, onClick: () -> Unit) {
+    val bg by animateColorAsState(if (done) color else Color.Transparent, label = "doneBg")
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(bg)
+            .border(2.dp, if (done) color else color.copy(alpha = 0.55f), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (done) {
+            Icon(
+                Icons.Rounded.Check,
+                contentDescription = stringResource(R.string.mark_not_done),
+                tint = Color.White,
+                modifier = Modifier.size(18.dp),
+            )
         }
     }
 }
@@ -832,10 +898,10 @@ private fun EmptyDay() {
     ) {
         Text("🌤️", fontSize = 56.sp)
         Spacer(Modifier.height(12.dp))
-        Text("Día libre", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.day_free), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Pulsa «Añadir» para crear una actividad este día.",
+            stringResource(R.string.empty_day_hint),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
@@ -853,17 +919,17 @@ private fun NoScheduleState(onOpenSchedules: () -> Unit) {
     ) {
         Text("🗓️", fontSize = 64.sp)
         Spacer(Modifier.height(12.dp))
-        Text("Aún no tienes horarios", style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.no_schedules_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
-            "Crea uno (por ejemplo «Semana de clase» o «Vacaciones») y actívalo para recibir avisos.",
+            stringResource(R.string.no_schedules_text),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
         Spacer(Modifier.height(20.dp))
         Button(onClick = onOpenSchedules, shape = RoundedCornerShape(16.dp)) {
-            Text("Crear mi primer horario")
+            Text(stringResource(R.string.create_first_schedule))
         }
     }
 }

@@ -3,6 +3,7 @@ package com.eduardo.horarios.data
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -35,6 +36,9 @@ interface ScheduleDao {
 
     @Query("UPDATE schedules SET isActive = CASE WHEN id = :id THEN 1 ELSE 0 END")
     suspend fun setActive(id: Long)
+
+    @Query("DELETE FROM schedules")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -65,4 +69,37 @@ interface ActivityDao {
 
     @Query("DELETE FROM activities WHERE scheduleId = :scheduleId")
     suspend fun deleteForSchedule(scheduleId: Long)
+
+    @Query("DELETE FROM activities")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface CompletionDao {
+    @Query("SELECT * FROM completions WHERE epochDay >= :fromDay")
+    fun observeSince(fromDay: Long): Flow<List<CompletionEntity>>
+
+    @Query("SELECT * FROM completions WHERE activityId = :activityId")
+    suspend fun getForActivity(activityId: Long): List<CompletionEntity>
+
+    @Query("SELECT COUNT(*) FROM completions WHERE activityId = :activityId AND epochDay = :epochDay")
+    suspend fun count(activityId: Long, epochDay: Long): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insert(completion: CompletionEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAll(completions: List<CompletionEntity>)
+
+    @Query("DELETE FROM completions WHERE activityId = :activityId AND epochDay = :epochDay")
+    suspend fun delete(activityId: Long, epochDay: Long)
+
+    @Query("DELETE FROM completions WHERE activityId IN (SELECT id FROM activities WHERE scheduleId = :scheduleId)")
+    suspend fun deleteForSchedule(scheduleId: Long)
+
+    @Query("DELETE FROM completions WHERE activityId = :activityId")
+    suspend fun deleteForActivity(activityId: Long)
+
+    @Query("DELETE FROM completions")
+    suspend fun deleteAll()
 }

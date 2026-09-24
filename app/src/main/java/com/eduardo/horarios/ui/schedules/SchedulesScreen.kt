@@ -1,7 +1,8 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, ExperimentalComposeUiApi::class)
 
 package com.eduardo.horarios.ui.schedules
 
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,17 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.FileOpen
+import androidx.compose.material.icons.rounded.Share
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Context
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import com.eduardo.horarios.R
+import com.eduardo.horarios.ui.backup.BackupIO
+import com.eduardo.horarios.ui.backup.ImportController
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -62,7 +74,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.APPLICATION_KEY
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -78,7 +89,7 @@ import com.eduardo.horarios.ui.components.EmojiPicker
 import com.eduardo.horarios.ui.components.Pill
 import com.eduardo.horarios.ui.components.SCHEDULE_EMOJIS
 import com.eduardo.horarios.ui.components.SectionLabel
-import com.eduardo.horarios.ui.theme.StatusBarIcons
+import com.eduardo.horarios.ui.theme.DefaultStatusBarIcons
 import com.eduardo.horarios.ui.theme.headerBrush
 import com.eduardo.horarios.ui.theme.paletteColor
 import kotlinx.coroutines.flow.SharingStarted
@@ -107,6 +118,7 @@ class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
     fun update(s: ScheduleEntity) = viewModelScope.launch { repo.updateSchedule(s) }
     fun duplicate(s: ScheduleEntity) = viewModelScope.launch { repo.duplicateSchedule(s) }
     fun delete(s: ScheduleEntity) = viewModelScope.launch { repo.deleteSchedule(s) }
+    fun share(context: Context, s: ScheduleEntity) = viewModelScope.launch { BackupIO.shareSchedule(context, repo, s) }
 
     companion object {
         val Factory = viewModelFactory {
@@ -124,10 +136,14 @@ fun SchedulesScreen(
     onBack: () -> Unit,
     vm: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
 ) {
-    StatusBarIcons(darkIcons = !isSystemInDarkTheme())
+    DefaultStatusBarIcons()
     val state by vm.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) ImportController.pending.value = uri
+    }
 
     var editing by remember { mutableStateOf<ScheduleEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -137,10 +153,15 @@ fun SchedulesScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Mis horarios", style = MaterialTheme.typography.titleLarge) },
+                title = { Text(stringResource(R.string.my_schedules), style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Atrás")
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) {
+                        Icon(Icons.Rounded.FileOpen, contentDescription = stringResource(R.string.import_schedule))
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -150,7 +171,7 @@ fun SchedulesScreen(
             ExtendedFloatingActionButton(
                 onClick = { creating = true },
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                text = { Text("Nuevo horario") },
+                text = { Text(stringResource(R.string.new_schedule)) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
                 shape = RoundedCornerShape(20.dp),
@@ -167,7 +188,7 @@ fun SchedulesScreen(
         ) {
             item {
                 Text(
-                    "Crea varios horarios y activa el que toque. Solo el horario activo te envía avisos.",
+                    stringResource(R.string.schedules_intro),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
@@ -180,11 +201,12 @@ fun SchedulesScreen(
                     onActivate = {
                         if (!s.isActive) {
                             vm.activate(s)
-                            scope.launch { snackbar.showSnackbar("«${s.name}» activado") }
+                            scope.launch { snackbar.showSnackbar(context.getString(R.string.schedule_activated, s.name)) }
                         }
                     },
                     onEdit = { editing = s },
                     onDuplicate = { vm.duplicate(s) },
+                    onShare = { vm.share(context, s) },
                     onDelete = { deleting = s },
                     modifier = Modifier.animateItem(),
                 )
@@ -194,7 +216,7 @@ fun SchedulesScreen(
 
     if (creating) {
         ScheduleDialog(
-            title = "Nuevo horario",
+            title = stringResource(R.string.new_schedule),
             initial = null,
             onDismiss = { creating = false },
             onSave = { name, emoji, color ->
@@ -205,7 +227,7 @@ fun SchedulesScreen(
     }
     editing?.let { s ->
         ScheduleDialog(
-            title = "Editar horario",
+            title = stringResource(R.string.edit_schedule),
             initial = s,
             onDismiss = { editing = null },
             onSave = { name, emoji, color ->
@@ -218,15 +240,15 @@ fun SchedulesScreen(
         val n = state.counts[s.id] ?: 0
         AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text("¿Eliminar «${s.name}»?") },
-            text = { Text(if (n > 0) "Se borrarán también sus $n actividades. No se puede deshacer." else "No se puede deshacer.") },
+            title = { Text(stringResource(R.string.delete_schedule_title, s.name)) },
+            text = { Text(if (n > 0) pluralStringResource(R.plurals.delete_schedule_text, n, n) else stringResource(R.string.cannot_undo)) },
             confirmButton = {
                 TextButton(onClick = {
                     vm.delete(s)
                     deleting = null
-                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { deleting = null }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
@@ -238,6 +260,7 @@ private fun ScheduleCard(
     onActivate: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
+    onShare: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -274,13 +297,13 @@ private fun ScheduleCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    "$count ${if (count == 1) "actividad" else "actividades"}",
+                    pluralStringResource(R.plurals.activities_count, count, count),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (schedule.isActive) {
                     Spacer(Modifier.height(6.dp))
-                    Pill("ACTIVO", color)
+                    Pill(stringResource(R.string.active_badge), color)
                 }
             }
             RadioButton(
@@ -290,21 +313,26 @@ private fun ScheduleCard(
             )
             Box {
                 IconButton(onClick = { menu = true }) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = "Opciones")
+                    Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
-                        text = { Text("Editar") },
+                        text = { Text(stringResource(R.string.edit)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
                         onClick = { menu = false; onEdit() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Duplicar") },
+                        text = { Text(stringResource(R.string.share)) },
+                        leadingIcon = { Icon(Icons.Rounded.Share, null) },
+                        onClick = { menu = false; onShare() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.duplicate)) },
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; onDuplicate() },
                     )
                     DropdownMenuItem(
-                        text = { Text("Eliminar", color = MaterialTheme.colorScheme.error) },
+                        text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },
                         onClick = { menu = false; onDelete() },
                     )
@@ -334,18 +362,18 @@ private fun ScheduleDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it.take(40) },
-                    label = { Text("Nombre") },
-                    placeholder = { Text("Ej. Semana de exámenes") },
+                    label = { Text(stringResource(R.string.name)) },
+                    placeholder = { Text(stringResource(R.string.schedule_name_hint)) },
                     singleLine = true,
                     shape = RoundedCornerShape(16.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Spacer(Modifier.height(20.dp))
-                SectionLabel("Icono")
+                SectionLabel(stringResource(R.string.icon))
                 EmojiPicker(SCHEDULE_EMOJIS, emoji, accent) { emoji = it }
                 Spacer(Modifier.height(20.dp))
-                SectionLabel("Color")
+                SectionLabel(stringResource(R.string.color))
                 ColorPicker(selected = color, onSelect = { color = it })
             }
         },
@@ -353,9 +381,9 @@ private fun ScheduleDialog(
             TextButton(
                 onClick = { onSave(name.trim(), emoji, color) },
                 enabled = name.isNotBlank(),
-            ) { Text("Guardar") }
+            ) { Text(stringResource(R.string.save)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
         containerColor = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(28.dp),
     )

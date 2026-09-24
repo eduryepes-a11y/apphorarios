@@ -33,7 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.eduardo.horarios.DAY_SHORT
+import com.eduardo.horarios.dayShort
+import androidx.compose.ui.platform.LocalContext
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.hm
@@ -91,7 +92,7 @@ fun WeekGrid(
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
-                                DAY_SHORT[d],
+                                dayShort(LocalContext.current, d),
                                 style = MaterialTheme.typography.labelLarge,
                                 color = if (isToday) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
                             )

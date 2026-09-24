@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.os.Build
+import com.eduardo.horarios.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,7 +30,7 @@ sealed interface UpdateState {
     data class Available(val info: UpdateInfo) : UpdateState
     data class Downloading(val info: UpdateInfo, val progress: Float) : UpdateState
     data class Installing(val info: UpdateInfo) : UpdateState
-    data class Error(val message: String, val info: UpdateInfo?) : UpdateState
+    data class Error(val messageRes: Int, val detail: String?, val info: UpdateInfo?) : UpdateState
 }
 
 /**
@@ -110,7 +111,7 @@ object UpdateManager {
             }
         } catch (e: Exception) {
             _state.value = if (silent) UpdateState.Idle
-            else UpdateState.Error("No se pudo comprobar. ¿Tienes internet?", null)
+            else UpdateState.Error(R.string.update_error_check, null, null)
         }
     }
 
@@ -156,7 +157,7 @@ object UpdateManager {
             _state.value = UpdateState.Installing(info)
             install(context, file)
         } catch (e: Exception) {
-            _state.value = UpdateState.Error("La descarga ha fallado. Inténtalo de nuevo.", info)
+            _state.value = UpdateState.Error(R.string.update_error_download, null, info)
         }
     }
 
@@ -197,7 +198,7 @@ object UpdateManager {
         _state.value = if (success) {
             UpdateState.UpToDate
         } else if (info != null) {
-            UpdateState.Error(message ?: "No se ha podido instalar la actualización.", info)
+            UpdateState.Error(R.string.update_error_install, message, info)
         } else {
             UpdateState.Idle
         }

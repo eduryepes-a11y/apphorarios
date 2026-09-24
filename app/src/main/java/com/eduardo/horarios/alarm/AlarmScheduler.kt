@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.eduardo.horarios.MainActivity
+import com.eduardo.horarios.R
+import com.eduardo.horarios.data.localized
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.hasDay
@@ -71,8 +73,15 @@ class AlarmScheduler(
             .plusMinutes(activity.startMinute.toLong()).toInstant().toEpochMilli()
         if (now - startMillis in 0..90_000) {
             val shown = Notifications.showStart(context, activity)
-            AlarmLog.add(context, "▶️ inicio de ${activity.emoji} ${activity.title} (al guardar): " +
-                if (shown) "notificación mostrada" else "NO mostrada")
+            val r = context.localized()
+            AlarmLog.add(
+                context,
+                r.getString(
+                    if (shown) R.string.log_shown else R.string.log_not_shown,
+                    r.getString(R.string.log_kind_start),
+                    "${activity.emoji} ${activity.title} " + r.getString(R.string.log_on_save),
+                ),
+            )
         }
     }
 

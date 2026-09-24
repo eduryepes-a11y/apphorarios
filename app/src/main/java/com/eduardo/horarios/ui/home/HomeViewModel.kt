@@ -14,12 +14,16 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.DayOfWeek
+import java.time.LocalDate
 
 data class HomeState(
     val loading: Boolean = true,
     val schedule: ScheduleEntity? = null,
     val activities: List<ActivityEntity> = emptyList(),
     val hasAnySchedule: Boolean = false,
+    /** (activityId, epochDay) de las actividades hechas esta semana. */
+    val done: Set<Pair<Long, Long>> = emptySet(),
 )
 
 class HomeViewModel(private val repo: HorariosRepository) : ViewModel() {
@@ -28,14 +32,20 @@ class HomeViewModel(private val repo: HorariosRepository) : ViewModel() {
         repo.activeSchedule,
         repo.activeActivities,
         repo.schedules,
-    ) { schedule, activities, all ->
+        repo.completionsSince(LocalDate.now().with(DayOfWeek.MONDAY).toEpochDay()),
+    ) { schedule, activities, all, completions ->
         HomeState(
             loading = false,
             schedule = schedule,
             activities = activities,
             hasAnySchedule = all.isNotEmpty(),
+            done = completions.map { it.activityId to it.epochDay }.toSet(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeState())
+
+    fun setDone(activityId: Long, epochDay: Long, done: Boolean) {
+        viewModelScope.launch { repo.setDone(activityId, epochDay, done) }
+    }
 
     /** Por si se acaba de conceder el permiso de alarmas exactas. */
     fun refreshAlarms(app: HorariosApp) {

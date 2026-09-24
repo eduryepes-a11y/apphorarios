@@ -34,7 +34,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.eduardo.horarios.ui.theme.Indigo
+import com.eduardo.horarios.R
+import androidx.compose.ui.res.stringResource
 import com.eduardo.horarios.ui.theme.headerBrush
 import kotlinx.coroutines.launch
 
@@ -57,12 +58,12 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                 .fillMaxWidth()
                 .padding(start = 16.dp, end = 16.dp, top = 16.dp)
                 .clip(RoundedCornerShape(24.dp))
-                .background(headerBrush(Indigo))
+                .background(headerBrush(MaterialTheme.colorScheme.primary))
                 .padding(18.dp),
         ) {
             when (val s = state) {
                 is UpdateState.Available -> {
-                    Text("🎉 Nueva versión ${s.info.versionName}", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text(stringResource(R.string.update_new_version, s.info.versionName), style = MaterialTheme.typography.titleMedium, color = Color.White)
                     if (s.info.notes.isNotBlank()) {
                         Spacer(Modifier.height(6.dp))
                         Text(
@@ -80,7 +81,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                                 if (!UpdateManager.canInstall(context)) {
                                     Toast.makeText(
                                         context,
-                                        "Activa «Permitir de esta fuente» y vuelve para actualizar",
+                                        context.getString(R.string.update_allow_source),
                                         Toast.LENGTH_LONG,
                                     ).show()
                                     context.startActivity(
@@ -94,17 +95,17 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                                 }
                             },
                             shape = RoundedCornerShape(14.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Indigo),
-                        ) { Text("Actualizar" + sizeLabel(s.info.sizeBytes)) }
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary),
+                        ) { Text(stringResource(R.string.update_button) + sizeLabel(s.info.sizeBytes)) }
                         Spacer(Modifier.weight(1f))
                         TextButton(onClick = { UpdateManager.dismiss() }) {
-                            Text("Luego", color = Color.White.copy(alpha = 0.85f))
+                            Text(stringResource(R.string.later), color = Color.White.copy(alpha = 0.85f))
                         }
                     }
                 }
 
                 is UpdateState.Downloading -> {
-                    Text("Descargando versión ${s.info.versionName}…", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text(stringResource(R.string.update_downloading, s.info.versionName), style = MaterialTheme.typography.titleMedium, color = Color.White)
                     Spacer(Modifier.height(12.dp))
                     LinearProgressIndicator(
                         progress = { s.progress },
@@ -118,28 +119,28 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                 }
 
                 is UpdateState.Installing -> {
-                    Text("Instalando versión ${s.info.versionName}…", style = MaterialTheme.typography.titleMedium, color = Color.White)
+                    Text(stringResource(R.string.update_installing, s.info.versionName), style = MaterialTheme.typography.titleMedium, color = Color.White)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        "Si Android te lo pide, pulsa «Actualizar». La app se cerrará y se abrirá ya actualizada.",
+                        stringResource(R.string.update_installing_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f),
                     )
                 }
 
                 is UpdateState.Error -> {
-                    Text("⚠️ ${s.message}", style = MaterialTheme.typography.titleSmall, color = Color.White)
+                    Text("⚠️ " + stringResource(s.messageRes) + (s.detail?.let { ": $it" } ?: ""), style = MaterialTheme.typography.titleSmall, color = Color.White)
                     Spacer(Modifier.height(8.dp))
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         s.info?.let { info ->
                             Button(
                                 onClick = { scope.launch { UpdateManager.downloadAndInstall(context.applicationContext, info) } },
                                 shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Indigo),
-                            ) { Text("Reintentar") }
+                                colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary),
+                            ) { Text(stringResource(R.string.retry)) }
                         }
                         TextButton(onClick = { UpdateManager.dismiss() }) {
-                            Text("Cerrar", color = Color.White.copy(alpha = 0.85f))
+                            Text(stringResource(R.string.close), color = Color.White.copy(alpha = 0.85f))
                         }
                     }
                 }

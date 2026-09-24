@@ -5,6 +5,7 @@ import com.eduardo.horarios.alarm.AlarmScheduler
 import com.eduardo.horarios.alarm.Notifications
 import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.data.HorariosRepository
+import com.eduardo.horarios.data.SettingsStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,6 +15,8 @@ class HorariosApp : Application() {
 
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    lateinit var settings: SettingsStore
+        private set
     lateinit var database: AppDatabase
         private set
     lateinit var scheduler: AlarmScheduler
@@ -23,6 +26,7 @@ class HorariosApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        settings = SettingsStore(this)
         Notifications.createChannel(this)
         database = AppDatabase.get(this)
         scheduler = AlarmScheduler(this, database)

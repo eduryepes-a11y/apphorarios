@@ -51,3 +51,22 @@ data class ScheduleCount(
     val scheduleId: Long,
     val count: Int,
 )
+
+/** Una actividad marcada como hecha un día concreto ([epochDay] = LocalDate.toEpochDay()). */
+@Entity(
+    tableName = "completions",
+    primaryKeys = ["activityId", "epochDay"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ActivityEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["activityId"],
+            onDelete = ForeignKey.CASCADE,
+        )
+    ],
+)
+data class CompletionEntity(
+    val activityId: Long,
+    val epochDay: Long,
+    val completedAt: Long = System.currentTimeMillis(),
+)

@@ -11,8 +11,11 @@ Una vez instalada, la app te avisa sola cuando hay versión nueva y se actualiza
 - Avisos: X minutos antes y/o **al empezar** cada actividad. Pantalla 🔔 de diagnóstico con historial.
 - Vista **Día** (línea de tiempo) y **Semana** (cuadrícula L–D).
 - **Widget** con todas las actividades del día.
+- **Marcar como hecha** (en la lista o desde la notificación) y **estadísticas**: % cumplido, racha y horas por actividad.
+- **Copia de seguridad** (exportar/importar) y **compartir horarios** con otras personas como archivo.
+- **Temas**: claro, oscuro o del sistema, y 8 colores para la app.
+- **Idiomas**: español e inglés (se cambia dentro de la app).
 - **Actualizaciones automáticas** desde GitHub Releases.
-- Modo oscuro.
 
 ## Desarrollo
 1. Android Studio → **File › Open** → carpeta del proyecto.
@@ -53,4 +56,5 @@ Todas las versiones tienen que ir firmadas con **la misma llave**; si no, no se 
 - `alarm/` → AlarmManager, avisos, historial y notificaciones.
 - `widget/` → widget con Jetpack Glance.
 - `update/` → comprobación, descarga e instalación de actualizaciones.
-- `ui/` → pantallas Compose (inicio, semana, horarios, editor, avisos) y tema.
+- `ui/` → pantallas Compose (inicio, semana, horarios, editor, avisos, ajustes, estadísticas) y tema.
+- `res/values` y `res/values-en` → textos en español e inglés.

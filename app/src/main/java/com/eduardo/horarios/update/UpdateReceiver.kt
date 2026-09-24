@@ -27,7 +27,7 @@ class UpdateReceiver : BroadcastReceiver() {
             PackageInstaller.STATUS_FAILURE_ABORTED -> UpdateManager.onInstallCancelled()
             else -> UpdateManager.onInstallFinished(
                 false,
-                intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)?.let { "No se pudo instalar: $it" },
+                intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE),
             )
         }
     }

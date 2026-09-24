@@ -1,27 +1,49 @@
 package com.eduardo.horarios.ui.theme
 
 import android.app.Activity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
+import com.eduardo.horarios.R
 
-private val LightColors = lightColorScheme(
-    primary = Indigo,
+/** Color principal de la app (elegible en Ajustes). */
+data class Accent(val nameRes: Int, val light: Color, val dark: Color)
+
+val Accents = listOf(
+    Accent(R.string.accent_indigo, Color(0xFF5B4FE9), Color(0xFF9D94FF)),
+    Accent(R.string.accent_ocean, Color(0xFF1E7FE0), Color(0xFF7DB8FF)),
+    Accent(R.string.accent_teal, Color(0xFF0E9384), Color(0xFF5FDDD0)),
+    Accent(R.string.accent_green, Color(0xFF2E9E5B), Color(0xFF7ED9A0)),
+    Accent(R.string.accent_amber, Color(0xFFD97F00), Color(0xFFFFC266)),
+    Accent(R.string.accent_coral, Color(0xFFE5484D), Color(0xFFFF8A8A)),
+    Accent(R.string.accent_pink, Color(0xFFD6408B), Color(0xFFF59AC6)),
+    Accent(R.string.accent_graphite, Color(0xFF475569), Color(0xFFB4BED0)),
+)
+
+/** true si la app se está pintando en modo oscuro (según el ajuste elegido). */
+val LocalDarkTheme = staticCompositionLocalOf { false }
+
+private fun lightScheme(accent: Accent): ColorScheme = lightColorScheme(
+    primary = accent.light,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE6E3FF),
-    onPrimaryContainer = Color(0xFF1B1464),
+    primaryContainer = lerp(accent.light, Color.White, 0.84f),
+    onPrimaryContainer = lerp(accent.light, Color.Black, 0.6f),
     secondary = Mint,
     onSecondary = Color.White,
     secondaryContainer = Color(0xFFD5F5F1),
@@ -46,11 +68,11 @@ private val LightColors = lightColorScheme(
     error = Color(0xFFE5484D),
 )
 
-private val DarkColors = darkColorScheme(
-    primary = Color(0xFF9D94FF),
-    onPrimary = Color(0xFF1B1464),
-    primaryContainer = Color(0xFF3A30A8),
-    onPrimaryContainer = Color(0xFFE6E3FF),
+private fun darkScheme(accent: Accent): ColorScheme = darkColorScheme(
+    primary = accent.dark,
+    onPrimary = lerp(accent.light, Color.Black, 0.75f),
+    primaryContainer = lerp(accent.light, Color.Black, 0.45f),
+    onPrimaryContainer = lerp(accent.dark, Color.White, 0.7f),
     secondary = Color(0xFF5FDDD0),
     onSecondary = Color(0xFF00332E),
     secondaryContainer = Color(0xFF0B4F48),
@@ -96,21 +118,26 @@ private val AppTypography = base.copy(
 
 @Composable
 fun HorariosTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    darkTheme: Boolean,
+    accentIndex: Int,
     content: @Composable () -> Unit,
 ) {
-    MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = AppTypography,
-        shapes = AppShapes,
-        content = content,
-    )
+    val accent = Accents.getOrElse(accentIndex) { Accents[0] }
+    val scheme = remember(darkTheme, accent) { if (darkTheme) darkScheme(accent) else lightScheme(accent) }
+    CompositionLocalProvider(LocalDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = AppTypography,
+            shapes = AppShapes,
+            content = content,
+        )
+    }
 }
 
 /** Iconos de la barra de estado: oscuros sobre fondo claro o claros sobre fondo oscuro. */
 @Composable
 fun StatusBarIcons(darkIcons: Boolean) {
-    val darkNavIcons = !isSystemInDarkTheme()
+    val darkNavIcons = !LocalDarkTheme.current
     val view = LocalView.current
     if (view.isInEditMode) return
     SideEffect {
@@ -120,3 +147,7 @@ fun StatusBarIcons(darkIcons: Boolean) {
         controller.isAppearanceLightNavigationBars = darkNavIcons
     }
 }
+
+/** Iconos de la barra de estado para pantallas con fondo normal. */
+@Composable
+fun DefaultStatusBarIcons() = StatusBarIcons(darkIcons = !LocalDarkTheme.current)

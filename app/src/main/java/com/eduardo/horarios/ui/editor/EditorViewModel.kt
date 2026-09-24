@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.eduardo.horarios.HorariosApp
+import com.eduardo.horarios.R
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.todayIndex
@@ -40,7 +41,7 @@ class EditorViewModel(
 
     var form by mutableStateOf(EditorForm(daysMask = 1 shl initialDay))
         private set
-    var error by mutableStateOf<String?>(null)
+    var error by mutableStateOf<Int?>(null)
         private set
 
     init {
@@ -80,9 +81,9 @@ class EditorViewModel(
     fun save(onDone: () -> Unit) {
         val f = form
         error = when {
-            f.title.isBlank() -> "Ponle un nombre a la actividad"
-            f.daysMask == 0 -> "Elige al menos un día"
-            f.endMinute <= f.startMinute -> "La hora de fin debe ser posterior a la de inicio"
+            f.title.isBlank() -> R.string.error_no_title
+            f.daysMask == 0 -> R.string.error_no_days
+            f.endMinute <= f.startMinute -> R.string.error_end_before_start
             else -> null
         }
         if (error != null) return
@@ -90,7 +91,7 @@ class EditorViewModel(
         viewModelScope.launch {
             val scheduleId = original?.scheduleId ?: repo.getActiveSchedule()?.id
             if (scheduleId == null) {
-                error = "No hay ningún horario activo"
+                error = R.string.error_no_active_schedule
                 return@launch
             }
             repo.saveActivity(

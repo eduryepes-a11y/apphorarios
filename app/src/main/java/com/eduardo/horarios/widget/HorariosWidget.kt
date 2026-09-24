@@ -32,7 +32,8 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.eduardo.horarios.DAY_NAMES
+import com.eduardo.horarios.dayName
+import com.eduardo.horarios.data.localized
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.MainActivity
 import com.eduardo.horarios.R
@@ -53,28 +54,40 @@ data class WidgetData(
     val scheduleTitle: String,
     val dayLabel: String,
     val summary: String,
+    val emptyText: String,
+    val nowLabel: String,
     val nowMinute: Int,
     val todayActs: List<ActivityEntity>,
 ) {
     companion object {
-        fun from(schedule: ScheduleEntity?, activities: List<ActivityEntity>): WidgetData {
+        fun from(r: Context, schedule: ScheduleEntity?, activities: List<ActivityEntity>): WidgetData {
             val today = todayIndex()
             val now = nowMinuteOfDay()
             val todayActs = activities.filter { it.daysMask.hasDay(today) }.sortedBy { it.startMinute }
             val current = todayActs.firstOrNull { now >= it.startMinute && now < it.endMinute }
             val next = todayActs.firstOrNull { it.startMinute > now }
             val summary = when {
-                schedule == null -> "Toca para crear un horario"
-                current != null -> "Ahora: ${current.emoji} ${current.title} · quedan ${durationLabel(current.endMinute - now)}"
-                next != null -> "Siguiente: ${next.emoji} ${next.title} en ${durationLabel(next.startMinute - now)}"
-                todayActs.isEmpty() -> "Día libre 🌤️"
-                else -> "¡Día completado! 🎉"
+                schedule == null -> r.getString(R.string.widget_tap_to_create)
+                current != null -> r.getString(
+                    R.string.widget_now,
+                    "${current.emoji} ${current.title}",
+                    durationLabel(r, current.endMinute - now),
+                )
+                next != null -> r.getString(
+                    R.string.widget_next,
+                    "${next.emoji} ${next.title}",
+                    durationLabel(r, next.startMinute - now),
+                )
+                todayActs.isEmpty() -> r.getString(R.string.day_free_emoji)
+                else -> r.getString(R.string.day_completed_emoji)
             }
             return WidgetData(
                 hasSchedule = schedule != null,
-                scheduleTitle = schedule?.let { "${it.emoji} ${it.name}" } ?: "Horarios",
-                dayLabel = DAY_NAMES[today],
+                scheduleTitle = schedule?.let { "${it.emoji} ${it.name}" } ?: r.getString(R.string.app_name),
+                dayLabel = dayName(r, today),
                 summary = summary,
+                emptyText = r.getString(if (schedule != null) R.string.widget_nothing_today else R.string.widget_open_app),
+                nowLabel = r.getString(R.string.now_badge),
                 nowMinute = now,
                 todayActs = todayActs,
             )
@@ -86,12 +99,13 @@ class HorariosWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = (context.applicationContext as HorariosApp).repository
-        val initial = WidgetData.from(repo.getActiveSchedule(), repo.getActiveActivities())
+        val r = context.localized()
+        val initial = WidgetData.from(r, repo.getActiveSchedule(), repo.getActiveActivities())
         val data = combine(
             repo.activeSchedule,
             repo.activeActivities,
             WidgetRefresher.tick,
-        ) { schedule, activities, _ -> WidgetData.from(schedule, activities) }
+        ) { schedule, activities, _ -> WidgetData.from(r, schedule, activities) }
 
         provideContent {
             val state by data.collectAsState(initial)
@@ -157,7 +171,7 @@ private fun WidgetContent(d: WidgetData) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = if (d.hasSchedule) "No tienes nada hoy" else "Abre la app para empezar",
+                    text = d.emptyText,
                     style = TextStyle(color = TextSecondary, fontSize = 13.sp),
                 )
             }
@@ -166,7 +180,7 @@ private fun WidgetContent(d: WidgetData) {
             LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 items(d.todayActs, itemId = { it.id }) { a ->
                     Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
-                        ActivityRow(a, d.nowMinute)
+                        ActivityRow(a, d.nowMinute, d.nowLabel)
                     }
                 }
             }
@@ -175,7 +189,7 @@ private fun WidgetContent(d: WidgetData) {
 }
 
 @Composable
-private fun ActivityRow(a: ActivityEntity, now: Int) {
+private fun ActivityRow(a: ActivityEntity, now: Int, nowLabel: String) {
     val isNow = now >= a.startMinute && now < a.endMinute
     val isPast = now >= a.endMinute
     val titleColor = when {
@@ -218,7 +232,7 @@ private fun ActivityRow(a: ActivityEntity, now: Int) {
             modifier = GlanceModifier.defaultWeight(),
         )
         when {
-            isNow -> Text("AHORA", style = TextStyle(color = White, fontSize = 9.sp, fontWeight = FontWeight.Bold))
+            isNow -> Text(nowLabel, style = TextStyle(color = White, fontSize = 9.sp, fontWeight = FontWeight.Bold))
             isPast -> Text("✓", style = TextStyle(color = TextSecondary, fontSize = 12.sp))
             else -> {}
         }

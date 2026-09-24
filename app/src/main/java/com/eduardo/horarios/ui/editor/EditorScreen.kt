@@ -7,7 +7,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -71,7 +70,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.eduardo.horarios.DAY_SHORT
+import com.eduardo.horarios.dayShort
+import com.eduardo.horarios.R
+import androidx.compose.ui.res.stringResource
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.MASK_ALL
 import com.eduardo.horarios.MASK_WEEKDAYS
@@ -88,7 +89,7 @@ import com.eduardo.horarios.ui.components.ColorPicker
 import com.eduardo.horarios.ui.components.EmojiBubble
 import com.eduardo.horarios.ui.components.EmojiPicker
 import com.eduardo.horarios.ui.components.SectionLabel
-import com.eduardo.horarios.ui.theme.StatusBarIcons
+import com.eduardo.horarios.ui.theme.DefaultStatusBarIcons
 import com.eduardo.horarios.ui.theme.headerBrush
 import com.eduardo.horarios.ui.theme.paletteColor
 
@@ -97,7 +98,7 @@ fun EditorScreen(
     onBack: () -> Unit,
     vm: EditorViewModel = viewModel(factory = EditorViewModel.Factory),
 ) {
-    StatusBarIcons(darkIcons = !isSystemInDarkTheme())
+    DefaultStatusBarIcons()
     val form = vm.form
     val accent by animateColorAsState(paletteColor(form.colorIndex), label = "accent")
 
@@ -111,16 +112,16 @@ fun EditorScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (vm.isEditing) "Editar actividad" else "Nueva actividad") },
+                title = { Text(stringResource(if (vm.isEditing) R.string.edit_activity else R.string.new_activity)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Rounded.Close, contentDescription = "Cerrar") }
+                    IconButton(onClick = onBack) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close)) }
                 },
                 actions = {
                     if (vm.isEditing) {
                         IconButton(onClick = { confirmDelete = true }) {
                             Icon(
                                 Icons.Rounded.DeleteOutline,
-                                contentDescription = "Eliminar",
+                                contentDescription = stringResource(R.string.delete),
                                 tint = MaterialTheme.colorScheme.error,
                             )
                         }
@@ -142,7 +143,7 @@ fun EditorScreen(
                         .padding(horizontal = 16.dp, vertical = 12.dp)
                         .height(56.dp),
                 ) {
-                    Text("Guardar", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.save), style = MaterialTheme.typography.titleMedium)
                 }
             }
         },
@@ -164,7 +165,7 @@ fun EditorScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        vm.error.orEmpty(),
+                        vm.error?.let { stringResource(it) } ?: "",
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.padding(14.dp),
@@ -175,8 +176,8 @@ fun EditorScreen(
             OutlinedTextField(
                 value = form.title,
                 onValueChange = { v -> vm.update { copy(title = v.take(50)) } },
-                label = { Text("Nombre de la actividad") },
-                placeholder = { Text("Ej. Estudiar inglés") },
+                label = { Text(stringResource(R.string.activity_name)) },
+                placeholder = { Text(stringResource(R.string.activity_name_hint)) },
                 singleLine = true,
                 shape = RoundedCornerShape(18.dp),
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -184,31 +185,31 @@ fun EditorScreen(
             )
 
             Column {
-                SectionLabel("Icono")
+                SectionLabel(stringResource(R.string.icon))
                 EmojiPicker(ACTIVITY_EMOJIS, form.emoji, accent) { e -> vm.update { copy(emoji = e) } }
             }
 
             Column {
-                SectionLabel("Días")
+                SectionLabel(stringResource(R.string.days))
                 DaysPicker(mask = form.daysMask, accent = accent) { m -> vm.update { copy(daysMask = m) } }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    QuickDaysChip("Entre semana", MASK_WEEKDAYS, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
-                    QuickDaysChip("Finde", MASK_WEEKEND, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
-                    QuickDaysChip("Todos", MASK_ALL, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
+                    QuickDaysChip(stringResource(R.string.days_weekdays), MASK_WEEKDAYS, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
+                    QuickDaysChip(stringResource(R.string.days_weekend_short), MASK_WEEKEND, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
+                    QuickDaysChip(stringResource(R.string.days_all_short), MASK_ALL, form.daysMask, accent) { m -> vm.update { copy(daysMask = m) } }
                 }
             }
 
             Column {
-                SectionLabel("Horario")
+                SectionLabel(stringResource(R.string.time))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    TimeBox("Empieza", form.startMinute, accent, Modifier.weight(1f)) { pickStart = true }
-                    TimeBox("Termina", form.endMinute, accent, Modifier.weight(1f)) { pickEnd = true }
+                    TimeBox(stringResource(R.string.starts), form.startMinute, accent, Modifier.weight(1f)) { pickStart = true }
+                    TimeBox(stringResource(R.string.ends), form.endMinute, accent, Modifier.weight(1f)) { pickEnd = true }
                 }
                 if (form.endMinute > form.startMinute) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        "Duración: ${durationLabel(form.endMinute - form.startMinute)}",
+                        stringResource(R.string.duration_label, durationLabel(context, form.endMinute - form.startMinute)),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(start = 4.dp),
@@ -217,12 +218,12 @@ fun EditorScreen(
             }
 
             Column {
-                SectionLabel("Color")
+                SectionLabel(stringResource(R.string.color))
                 ColorPicker(selected = form.colorIndex, onSelect = { c -> vm.update { copy(colorIndex = c) } })
             }
 
             Column {
-                SectionLabel("Aviso")
+                SectionLabel(stringResource(R.string.reminder))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -232,7 +233,7 @@ fun EditorScreen(
                         FilterChip(
                             selected = sel,
                             onClick = { vm.update { copy(reminderMinutes = r) } },
-                            label = { Text(reminderChipLabel(r)) },
+                            label = { Text(reminderChipLabel(context, r)) },
                             leadingIcon = if (sel && r >= 0) {
                                 { Icon(Icons.Rounded.NotificationsActive, null, Modifier.size(18.dp)) }
                             } else null,
@@ -246,10 +247,10 @@ fun EditorScreen(
                     }
                 }
                 val hint = when {
-                    form.reminderMinutes < 0 -> "No recibirás ninguna notificación de esta actividad."
-                    form.reminderMinutes == 0 -> "Te avisaremos justo cuando empiece."
-                    startAlerts -> "Te avisaremos ${reminderChipLabel(form.reminderMinutes).lowercase()} y otra vez cuando empiece."
-                    else -> "Te avisaremos ${reminderChipLabel(form.reminderMinutes).lowercase()}."
+                    form.reminderMinutes < 0 -> stringResource(R.string.hint_no_reminder)
+                    form.reminderMinutes == 0 -> stringResource(R.string.hint_at_start)
+                    startAlerts -> stringResource(R.string.hint_before_and_start, reminderChipLabel(context, form.reminderMinutes).lowercase())
+                    else -> stringResource(R.string.hint_before, reminderChipLabel(context, form.reminderMinutes).lowercase())
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -261,11 +262,11 @@ fun EditorScreen(
             }
 
             Column {
-                SectionLabel("Notas")
+                SectionLabel(stringResource(R.string.notes))
                 OutlinedTextField(
                     value = form.notes,
                     onValueChange = { v -> vm.update { copy(notes = v.take(300)) } },
-                    placeholder = { Text("Opcional: lugar, material, detalles…") },
+                    placeholder = { Text(stringResource(R.string.notes_hint)) },
                     minLines = 3,
                     shape = RoundedCornerShape(18.dp),
                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
@@ -278,7 +279,7 @@ fun EditorScreen(
 
     if (pickStart) {
         TimePickerDialog(
-            title = "Hora de inicio",
+            title = stringResource(R.string.start_time),
             initialMinute = form.startMinute,
             accent = accent,
             onDismiss = { pickStart = false },
@@ -287,7 +288,7 @@ fun EditorScreen(
     }
     if (pickEnd) {
         TimePickerDialog(
-            title = "Hora de fin",
+            title = stringResource(R.string.end_time),
             initialMinute = form.endMinute,
             accent = accent,
             onDismiss = { pickEnd = false },
@@ -297,21 +298,22 @@ fun EditorScreen(
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
-            title = { Text("¿Eliminar actividad?") },
-            text = { Text("Se borrará «${form.title}» de todos sus días.") },
+            title = { Text(stringResource(R.string.delete_activity_title)) },
+            text = { Text(stringResource(R.string.delete_activity_text, form.title)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmDelete = false
                     vm.delete(onBack)
-                }) { Text("Eliminar", color = MaterialTheme.colorScheme.error) }
+                }) { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) }
             },
-            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Cancelar") } },
+            dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) } },
         )
     }
 }
 
 @Composable
 private fun PreviewCard(form: EditorForm, accent: Color) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -331,7 +333,7 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
             Spacer(Modifier.width(16.dp))
             Column(Modifier.weight(1f)) {
                 Text(
-                    form.title.ifBlank { "Nueva actividad" },
+                    form.title.ifBlank { stringResource(R.string.new_activity) },
                     style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                     maxLines = 1,
@@ -344,7 +346,7 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
                     color = Color.White.copy(alpha = 0.9f),
                 )
                 Text(
-                    "${daysSummary(form.daysMask)} · ${reminderChipLabel(form.reminderMinutes)}",
+                    "${daysSummary(context, form.daysMask)} · ${reminderChipLabel(context, form.reminderMinutes)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.8f),
                 )
@@ -355,6 +357,7 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
 
 @Composable
 private fun DaysPicker(mask: Int, accent: Color, onChange: (Int) -> Unit) {
+    val context = LocalContext.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         for (d in 0..6) {
             val sel = mask.hasDay(d)
@@ -372,7 +375,7 @@ private fun DaysPicker(mask: Int, accent: Color, onChange: (Int) -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    DAY_SHORT[d],
+                    dayShort(context, d),
                     style = MaterialTheme.typography.titleMedium,
                     color = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -465,8 +468,8 @@ private fun TimePickerDialog(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.End,
                 ) {
-                    TextButton(onClick = onDismiss) { Text("Cancelar") }
-                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text("Aceptar") }
+                    TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                    TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text(stringResource(R.string.accept)) }
                 }
             }
         }

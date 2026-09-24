@@ -19,6 +19,9 @@ import com.eduardo.horarios.ui.editor.EditorScreen
 import com.eduardo.horarios.ui.home.HomeScreen
 import com.eduardo.horarios.ui.schedules.SchedulesScreen
 import com.eduardo.horarios.ui.settings.NotificationsScreen
+import com.eduardo.horarios.ui.settings.SettingsScreen
+import com.eduardo.horarios.ui.stats.StatsScreen
+import com.eduardo.horarios.ui.backup.ImportHandler
 
 private const val ANIM = 320
 
@@ -39,8 +42,18 @@ fun AppNavigation() {
                     onOpenSchedules = { nav.navigate("schedules") },
                     onAddActivity = { day -> nav.navigate("editor?day=$day") },
                     onEditActivity = { id -> nav.navigate("editor?activityId=$id") },
+                    onOpenSettings = { nav.navigate("settings") },
+                    onOpenStats = { nav.navigate("stats") },
+                )
+            }
+            composable("settings") {
+                SettingsScreen(
+                    onBack = { nav.popBackStack() },
                     onOpenNotifications = { nav.navigate("notifications") },
                 )
+            }
+            composable("stats") {
+                StatsScreen(onBack = { nav.popBackStack() })
             }
             composable("notifications") {
                 NotificationsScreen(onBack = { nav.popBackStack() })
@@ -58,5 +71,6 @@ fun AppNavigation() {
                 EditorScreen(onBack = { nav.popBackStack() })
             }
         }
+        ImportHandler()
     }
 }
