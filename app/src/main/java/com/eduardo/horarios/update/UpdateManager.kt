@@ -1,10 +1,8 @@
 package com.eduardo.horarios.update
 
-import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageInstaller
-import android.os.Build
+import androidx.core.content.FileProvider
 import com.eduardo.horarios.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,7 +27,7 @@ sealed interface UpdateState {
     data object UpToDate : UpdateState
     data class Available(val info: UpdateInfo) : UpdateState
     data class Downloading(val info: UpdateInfo, val progress: Float) : UpdateState
-    data class Installing(val info: UpdateInfo) : UpdateState
+    data class ReadyToInstall(val info: UpdateInfo) : UpdateState
     data class Error(val messageRes: Int, val detail: String?, val info: UpdateInfo?) : UpdateState
 }
 
@@ -37,12 +35,11 @@ sealed interface UpdateState {
  * Actualizaciones desde GitHub Releases:
  * 1. Mira la última Release del repositorio.
  * 2. Si su versión (tag "v1.2.0") es mayor que la instalada y trae un .apk, avisa.
- * 3. Descarga el APK y lo instala con PackageInstaller (en Android 12+ puede ir sin confirmación).
+ * 3. Descarga el APK y abre el instalador de Android para confirmar la actualización.
  */
 object UpdateManager {
     const val REPO = "eduryepes-a11y/apphorarios"
     private const val LATEST_URL = "https://api.github.com/repos/$REPO/releases/latest"
-    const val ACTION_INSTALL_STATUS = "com.eduardo.horarios.INSTALL_STATUS"
 
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
@@ -61,7 +58,7 @@ object UpdateManager {
      * y no repite la consulta si se hizo hace menos de 30 minutos.
      */
     suspend fun check(context: Context, silent: Boolean) = withContext(Dispatchers.IO) {
-        val busy = _state.value is UpdateState.Downloading || _state.value is UpdateState.Installing
+        val busy = _state.value is UpdateState.Downloading
         if (busy) return@withContext
         if (silent && System.currentTimeMillis() - lastCheck < 30 * 60_000L) return@withContext
         lastCheck = System.currentTimeMillis()
@@ -118,8 +115,11 @@ object UpdateManager {
     /** true si Android deja a esta app instalar APKs (permiso «instalar apps desconocidas»). */
     fun canInstall(context: Context): Boolean = context.packageManager.canRequestPackageInstalls()
 
+    private fun apkFile(context: Context): File = File(File(context.cacheDir, "updates").apply { mkdirs() }, "Horarios.apk")
+
+    /** Descarga el APK y abre el instalador de Android. */
     suspend fun downloadAndInstall(context: Context, info: UpdateInfo) = withContext(Dispatchers.IO) {
-        val file = File(context.cacheDir, "update.apk")
+        val file = apkFile(context)
         try {
             _state.value = UpdateState.Downloading(info, 0f)
             var conn = URL(info.apkUrl).openConnection() as HttpURLConnection
@@ -137,11 +137,11 @@ object UpdateManager {
             if (conn.responseCode != 200) throw IllegalStateException("HTTP ${conn.responseCode}")
 
             val total = conn.contentLengthLong.takeIf { it > 0 } ?: info.sizeBytes
+            var done = 0L
             conn.inputStream.use { input ->
                 file.outputStream().use { output ->
                     val buffer = ByteArray(64 * 1024)
                     var read: Int
-                    var done = 0L
                     var lastEmit = 0L
                     while (input.read(buffer).also { read = it } >= 0) {
                         output.write(buffer, 0, read)
@@ -153,60 +153,35 @@ object UpdateManager {
                     }
                 }
             }
+            if (info.sizeBytes > 0 && file.length() != info.sizeBytes) throw IllegalStateException("Incomplete")
 
-            _state.value = UpdateState.Installing(info)
-            install(context, file)
+            _state.value = UpdateState.ReadyToInstall(info)
+            launchInstaller(context)
         } catch (e: Exception) {
+            file.delete()
             _state.value = UpdateState.Error(R.string.update_error_download, null, info)
         }
     }
 
-    private fun install(context: Context, apk: File) {
-        val installer = context.packageManager.packageInstaller
-        val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
-            setAppPackageName(context.packageName)
-            setSize(apk.length())
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                // Si Android lo permite, se actualiza sin pedir confirmación
-                setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
-            }
-        }
-        val sessionId = installer.createSession(params)
-        installer.openSession(sessionId).use { session ->
-            session.openWrite("horarios.apk", 0, apk.length()).use { out ->
-                apk.inputStream().use { it.copyTo(out) }
-                session.fsync(out)
-            }
-            val flags = PendingIntent.FLAG_UPDATE_CURRENT or
-                (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0)
-            val pi = PendingIntent.getBroadcast(
-                context,
-                7_777,
-                Intent(context, UpdateReceiver::class.java).setAction(ACTION_INSTALL_STATUS),
-                flags,
-            )
-            session.commit(pi.intentSender)
-        }
-    }
-
-    internal fun onInstallFinished(success: Boolean, message: String?) {
-        val info = when (val s = _state.value) {
-            is UpdateState.Installing -> s.info
-            is UpdateState.Available -> s.info
-            else -> null
-        }
-        _state.value = if (success) {
-            UpdateState.UpToDate
-        } else if (info != null) {
-            UpdateState.Error(R.string.update_error_install, message, info)
+    /** Vuelve a abrir el instalador con el APK ya descargado (o lo descarga si no está). */
+    suspend fun install(context: Context, info: UpdateInfo) {
+        val file = apkFile(context)
+        if (info.sizeBytes > 0 && file.length() == info.sizeBytes) {
+            _state.value = UpdateState.ReadyToInstall(info)
+            withContext(Dispatchers.Main) { launchInstaller(context) }
         } else {
-            UpdateState.Idle
+            downloadAndInstall(context, info)
         }
     }
 
-    internal fun onInstallCancelled() {
-        val s = _state.value
-        if (s is UpdateState.Installing) _state.value = UpdateState.Available(s.info)
+    /** Abre la pantalla de Android «¿Quieres actualizar esta app?». */
+    private fun launchInstaller(context: Context) {
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", apkFile(context))
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/vnd.android.package-archive")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
     fun dismiss() {

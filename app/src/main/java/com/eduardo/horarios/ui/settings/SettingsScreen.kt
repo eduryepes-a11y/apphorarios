@@ -301,7 +301,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit) {
                                 UpdateState.UpToDate -> stringResource(R.string.update_up_to_date)
                                 is UpdateState.Available -> stringResource(R.string.update_available_home, u.info.versionName)
                                 is UpdateState.Downloading -> stringResource(R.string.update_downloading_pct, (u.progress * 100).toInt())
-                                is UpdateState.Installing -> stringResource(R.string.update_installing_short)
+                                is UpdateState.ReadyToInstall -> stringResource(R.string.update_ready_title, u.info.versionName)
                                 is UpdateState.Error -> stringResource(u.messageRes)
                                 UpdateState.Idle -> stringResource(R.string.update_from_github)
                             },

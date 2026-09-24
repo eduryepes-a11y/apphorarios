@@ -1,6 +1,8 @@
 package com.eduardo.horarios.update
 
+import android.content.Context
 import android.content.Intent
+import kotlinx.coroutines.CoroutineScope
 import android.net.Uri
 import android.provider.Settings
 import android.widget.Toast
@@ -50,7 +52,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { UpdateManager.check(context.applicationContext, silent = true) }
 
     val visible = state is UpdateState.Available || state is UpdateState.Downloading ||
-        state is UpdateState.Installing || (state is UpdateState.Error && (state as UpdateState.Error).info != null)
+        state is UpdateState.ReadyToInstall || (state is UpdateState.Error && (state as UpdateState.Error).info != null)
 
     AnimatedVisibility(visible, modifier = modifier) {
         Column(
@@ -77,23 +79,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                     Spacer(Modifier.height(12.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Button(
-                            onClick = {
-                                if (!UpdateManager.canInstall(context)) {
-                                    Toast.makeText(
-                                        context,
-                                        context.getString(R.string.update_allow_source),
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                    context.startActivity(
-                                        Intent(
-                                            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                                            Uri.parse("package:${context.packageName}"),
-                                        )
-                                    )
-                                } else {
-                                    scope.launch { UpdateManager.downloadAndInstall(context.applicationContext, s.info) }
-                                }
-                            },
+                            onClick = { installOrAskPermission(context, s.info, scope) },
                             shape = RoundedCornerShape(14.dp),
                             colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary),
                         ) { Text(stringResource(R.string.update_button) + sizeLabel(s.info.sizeBytes)) }
@@ -118,14 +104,26 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                     Text("${(s.progress * 100).toInt()} %", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.85f))
                 }
 
-                is UpdateState.Installing -> {
-                    Text(stringResource(R.string.update_installing, s.info.versionName), style = MaterialTheme.typography.titleMedium, color = Color.White)
+                is UpdateState.ReadyToInstall -> {
+                    Text(stringResource(R.string.update_ready_title, s.info.versionName), style = MaterialTheme.typography.titleMedium, color = Color.White)
                     Spacer(Modifier.height(4.dp))
                     Text(
-                        stringResource(R.string.update_installing_hint),
+                        stringResource(R.string.update_ready_text),
                         style = MaterialTheme.typography.bodySmall,
                         color = Color.White.copy(alpha = 0.85f),
                     )
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Button(
+                            onClick = { installOrAskPermission(context, s.info, scope) },
+                            shape = RoundedCornerShape(14.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary),
+                        ) { Text(stringResource(R.string.update_install)) }
+                        Spacer(Modifier.weight(1f))
+                        TextButton(onClick = { UpdateManager.dismiss() }) {
+                            Text(stringResource(R.string.later), color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
                 }
 
                 is UpdateState.Error -> {
@@ -134,7 +132,7 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         s.info?.let { info ->
                             Button(
-                                onClick = { scope.launch { UpdateManager.downloadAndInstall(context.applicationContext, info) } },
+                                onClick = { installOrAskPermission(context, info, scope) },
                                 shape = RoundedCornerShape(14.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = MaterialTheme.colorScheme.primary),
                             ) { Text(stringResource(R.string.retry)) }
@@ -148,6 +146,18 @@ fun UpdateCard(modifier: Modifier = Modifier) {
                 else -> Box {}
             }
         }
+    }
+}
+
+/** Si falta el permiso de «instalar apps desconocidas», abre Ajustes; si no, descarga/instala. */
+private fun installOrAskPermission(context: Context, info: UpdateInfo, scope: CoroutineScope) {
+    if (!UpdateManager.canInstall(context)) {
+        Toast.makeText(context, context.getString(R.string.update_allow_source), Toast.LENGTH_LONG).show()
+        context.startActivity(
+            Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:${context.packageName}"))
+        )
+    } else {
+        scope.launch { UpdateManager.install(context.applicationContext, info) }
     }
 }
 
