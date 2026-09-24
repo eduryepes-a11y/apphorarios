@@ -39,6 +39,10 @@ import com.eduardo.horarios.MainActivity
 import com.eduardo.horarios.R
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.ScheduleEntity
+import com.eduardo.horarios.data.OverrideEntity
+import com.eduardo.horarios.data.PlannedActivity
+import com.eduardo.horarios.data.Planner
+import java.time.LocalDate
 import com.eduardo.horarios.durationLabel
 import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.hm
@@ -57,26 +61,31 @@ data class WidgetData(
     val emptyText: String,
     val nowLabel: String,
     val nowMinute: Int,
-    val todayActs: List<ActivityEntity>,
+    val todayActs: List<PlannedActivity>,
 ) {
     companion object {
-        fun from(r: Context, schedule: ScheduleEntity?, activities: List<ActivityEntity>): WidgetData {
+        fun from(
+            r: Context,
+            schedule: ScheduleEntity?,
+            activities: List<ActivityEntity>,
+            overrides: List<OverrideEntity>,
+        ): WidgetData {
             val today = todayIndex()
             val now = nowMinuteOfDay()
-            val todayActs = activities.filter { it.daysMask.hasDay(today) }.sortedBy { it.startMinute }
-            val current = todayActs.firstOrNull { now >= it.startMinute && now < it.endMinute }
-            val next = todayActs.firstOrNull { it.startMinute > now }
+            val todayActs = Planner.plan(LocalDate.now(), activities, overrides).filter { !it.skipped }
+            val current = todayActs.firstOrNull { now >= it.start && now < it.end }
+            val next = todayActs.firstOrNull { it.start > now }
             val summary = when {
                 schedule == null -> r.getString(R.string.widget_tap_to_create)
                 current != null -> r.getString(
                     R.string.widget_now,
-                    "${current.emoji} ${current.title}",
-                    durationLabel(r, current.endMinute - now),
+                    "${current.activity.emoji} ${current.activity.title}",
+                    durationLabel(r, current.end - now),
                 )
                 next != null -> r.getString(
                     R.string.widget_next,
-                    "${next.emoji} ${next.title}",
-                    durationLabel(r, next.startMinute - now),
+                    "${next.activity.emoji} ${next.activity.title}",
+                    durationLabel(r, next.start - now),
                 )
                 todayActs.isEmpty() -> r.getString(R.string.day_free_emoji)
                 else -> r.getString(R.string.day_completed_emoji)
@@ -100,12 +109,19 @@ class HorariosWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val repo = (context.applicationContext as HorariosApp).repository
         val r = context.localized()
-        val initial = WidgetData.from(r, repo.getActiveSchedule(), repo.getActiveActivities())
+        val todayEpoch = LocalDate.now().toEpochDay()
+        val initial = WidgetData.from(
+            r,
+            repo.getActiveSchedule(),
+            repo.getActiveActivities(),
+            repo.getOverrides(todayEpoch, todayEpoch),
+        )
         val data = combine(
             repo.activeSchedule,
             repo.activeActivities,
+            repo.overridesBetween(todayEpoch, todayEpoch),
             WidgetRefresher.tick,
-        ) { schedule, activities, _ -> WidgetData.from(r, schedule, activities) }
+        ) { schedule, activities, overrides, _ -> WidgetData.from(r, schedule, activities, overrides) }
 
         provideContent {
             val state by data.collectAsState(initial)
@@ -178,7 +194,7 @@ private fun WidgetContent(d: WidgetData) {
         } else {
             // Lista del día completo (se puede deslizar arriba y abajo)
             LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
-                items(d.todayActs, itemId = { it.id }) { a ->
+                items(d.todayActs, itemId = { it.activity.id }) { a ->
                     Column(modifier = GlanceModifier.fillMaxWidth().padding(bottom = 6.dp)) {
                         ActivityRow(a, d.nowMinute, d.nowLabel)
                     }
@@ -189,9 +205,10 @@ private fun WidgetContent(d: WidgetData) {
 }
 
 @Composable
-private fun ActivityRow(a: ActivityEntity, now: Int, nowLabel: String) {
-    val isNow = now >= a.startMinute && now < a.endMinute
-    val isPast = now >= a.endMinute
+private fun ActivityRow(p: PlannedActivity, now: Int, nowLabel: String) {
+    val a = p.activity
+    val isNow = now >= p.start && now < p.end
+    val isPast = now >= p.end
     val titleColor = when {
         isNow -> White
         isPast -> TextSecondary
@@ -217,11 +234,11 @@ private fun ActivityRow(a: ActivityEntity, now: Int, nowLabel: String) {
         Spacer(GlanceModifier.width(10.dp))
         Column(modifier = GlanceModifier.width(46.dp)) {
             Text(
-                text = hm(a.startMinute),
+                text = hm(p.start),
                 style = TextStyle(color = titleColor, fontSize = 12.sp, fontWeight = FontWeight.Bold),
             )
             Text(
-                text = hm(a.endMinute),
+                text = hm(p.end),
                 style = TextStyle(color = timeColor, fontSize = 10.sp),
             )
         }

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 class HorariosRepository(
     private val context: Context,
@@ -19,6 +20,7 @@ class HorariosRepository(
     private val scheduleDao = db.scheduleDao()
     private val activityDao = db.activityDao()
     private val completionDao = db.completionDao()
+    private val overrideDao = db.overrideDao()
 
     val schedules: Flow<List<ScheduleEntity>> = scheduleDao.observeAll()
     val activeSchedule: Flow<ScheduleEntity?> = scheduleDao.observeActive()
@@ -37,6 +39,103 @@ class HorariosRepository(
         scheduleDao.getActive()?.let { activityDao.getForSchedule(it.id) } ?: emptyList()
 
     suspend fun getActivity(id: Long): ActivityEntity? = activityDao.getById(id)
+
+    // ---------- Excepciones, días libres y retrasos ----------
+
+    /** Cambios puntuales del horario activo entre dos días (epochDay, ambos incluidos). */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun overridesBetween(fromDay: Long, toDay: Long): Flow<List<OverrideEntity>> = activeSchedule.flatMapLatest { s ->
+        if (s == null) flowOf(emptyList()) else overrideDao.observeRange(s.id, fromDay, toDay)
+    }
+
+    suspend fun getOverrides(fromDay: Long, toDay: Long): List<OverrideEntity> =
+        scheduleDao.getActive()?.let { overrideDao.getRange(it.id, fromDay, toDay) } ?: emptyList()
+
+    /** Plan de hoy del horario activo (con excepciones y retrasos). */
+    suspend fun todayPlan(): List<PlannedActivity> {
+        val today = LocalDate.now()
+        return Planner.plan(today, getActiveActivities(), getOverrides(today.toEpochDay(), today.toEpochDay()))
+    }
+
+    /** Saltar (o recuperar) una actividad solo el día [epochDay]. */
+    suspend fun setSkipped(activity: ActivityEntity, epochDay: Long, skipped: Boolean) {
+        overrideDao.deleteSkip(activity.scheduleId, epochDay, activity.id)
+        if (skipped) {
+            overrideDao.insert(
+                OverrideEntity(
+                    scheduleId = activity.scheduleId,
+                    epochDay = epochDay,
+                    type = OverrideEntity.TYPE_SKIP,
+                    activityId = activity.id,
+                )
+            )
+        }
+        scheduler.rescheduleAll()
+    }
+
+    /** Marcar (o quitar) un día libre en el horario activo. */
+    suspend fun setDayOff(epochDay: Long, off: Boolean) {
+        val s = scheduleDao.getActive() ?: return
+        overrideDao.deleteDayOff(s.id, epochDay)
+        if (off) overrideDao.insert(OverrideEntity(scheduleId = s.id, epochDay = epochDay, type = OverrideEntity.TYPE_SKIP))
+        scheduler.rescheduleAll()
+    }
+
+    /** Retrasar [minutes] las actividades de hoy que empiezan a partir de [fromMinute]. */
+    suspend fun shiftDay(epochDay: Long, fromMinute: Int, minutes: Int) {
+        val s = scheduleDao.getActive() ?: return
+        overrideDao.insert(
+            OverrideEntity(
+                scheduleId = s.id,
+                epochDay = epochDay,
+                type = OverrideEntity.TYPE_SHIFT,
+                fromMinute = fromMinute,
+                minutes = minutes,
+            )
+        )
+        scheduler.rescheduleAll()
+    }
+
+    suspend fun resetShifts(epochDay: Long) {
+        val s = scheduleDao.getActive() ?: return
+        overrideDao.deleteShifts(s.id, epochDay)
+        scheduler.rescheduleAll()
+    }
+
+    /** Borra cambios puntuales de hace más de un mes. */
+    suspend fun cleanOldOverrides() {
+        overrideDao.deleteOlderThan(LocalDate.now().minusDays(35).toEpochDay())
+    }
+
+    // ---------- Plantillas y alta rápida ----------
+
+    /** Crea un horario a partir de una plantilla. Devuelve su id. */
+    suspend fun createFromTemplate(template: ScheduleTemplate, activate: Boolean): Long {
+        val r = context.localized()
+        val id = db.withTransaction {
+            val isFirst = scheduleDao.count() == 0
+            val newId = scheduleDao.insert(
+                ScheduleEntity(
+                    name = r.getString(template.nameRes),
+                    emoji = template.emoji,
+                    colorIndex = template.colorIndex,
+                    isActive = false,
+                )
+            )
+            activityDao.insertAll(template.activities.map { it.toEntity(r, newId) })
+            if (activate || isFirst) scheduleDao.setActive(newId)
+            newId
+        }
+        scheduler.rescheduleAll()
+        return id
+    }
+
+    /** Añade varias actividades de golpe al horario activo. */
+    suspend fun addActivities(activities: List<ActivityEntity>) {
+        val s = scheduleDao.getActive() ?: return
+        activityDao.insertAll(activities.map { it.copy(id = 0, scheduleId = s.id) })
+        scheduler.rescheduleAll()
+    }
 
     // ---------- Horarios ----------
 
@@ -77,6 +176,7 @@ class HorariosRepository(
     suspend fun deleteSchedule(schedule: ScheduleEntity) {
         db.withTransaction {
             completionDao.deleteForSchedule(schedule.id)
+            overrideDao.deleteForSchedule(schedule.id)
             activityDao.deleteForSchedule(schedule.id)
             scheduleDao.delete(schedule)
             if (schedule.isActive) {
@@ -96,6 +196,7 @@ class HorariosRepository(
 
     suspend fun deleteActivity(activity: ActivityEntity) {
         completionDao.deleteForActivity(activity.id)
+        overrideDao.deleteForActivity(activity.id)
         activityDao.delete(activity)
         scheduler.rescheduleAll()
     }
@@ -103,6 +204,9 @@ class HorariosRepository(
     // ---------- Hecho / estadísticas ----------
 
     fun completionsSince(fromDay: Long): Flow<List<CompletionEntity>> = completionDao.observeSince(fromDay)
+
+    fun completionsBetween(fromDay: Long, toDay: Long): Flow<List<CompletionEntity>> =
+        completionDao.observeRange(fromDay, toDay)
 
     suspend fun setDone(activityId: Long, epochDay: Long, done: Boolean) {
         if (done) completionDao.insert(CompletionEntity(activityId, epochDay))
@@ -145,6 +249,7 @@ class HorariosRepository(
         db.withTransaction {
             if (replace) {
                 completionDao.deleteAll()
+                overrideDao.deleteAll()
                 activityDao.deleteAll()
                 scheduleDao.deleteAll()
             }
@@ -180,45 +285,5 @@ class HorariosRepository(
         }
         scheduler.rescheduleAll()
         return file.schedules.size
-    }
-
-    // ---------- Datos de ejemplo (solo la primera vez) ----------
-
-    suspend fun seedIfFirstLaunch() {
-        val prefs = context.getSharedPreferences("app", Context.MODE_PRIVATE)
-        if (prefs.getBoolean("seeded", false)) return
-        prefs.edit().putBoolean("seeded", true).apply()
-        if (scheduleDao.count() > 0) return
-
-        val r = context.localized()
-        val weekdays = 0b0011111
-        val weekend = 0b1100000
-        val all = 0b1111111
-
-        db.withTransaction {
-            val work = scheduleDao.insert(
-                ScheduleEntity(name = r.getString(R.string.seed_schedule_week), emoji = "💼", colorIndex = 0, isActive = true)
-            )
-            activityDao.insertAll(
-                listOf(
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_breakfast), emoji = "☕", daysMask = weekdays, startMinute = 8 * 60, endMinute = 8 * 60 + 30, colorIndex = 5, reminderMinutes = 0),
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_work), emoji = "💻", daysMask = weekdays, startMinute = 9 * 60, endMinute = 14 * 60, colorIndex = 1, reminderMinutes = 10),
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_lunch), emoji = "🍽️", daysMask = weekdays, startMinute = 14 * 60, endMinute = 15 * 60, colorIndex = 6, reminderMinutes = 0),
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_gym), emoji = "💪", notes = r.getString(R.string.seed_gym_notes), daysMask = 0b0010101, startMinute = 18 * 60 + 30, endMinute = 19 * 60 + 30, colorIndex = 3, reminderMinutes = 15),
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_study), emoji = "📚", daysMask = 0b0001010, startMinute = 20 * 60, endMinute = 21 * 60 + 30, colorIndex = 0, reminderMinutes = 10),
-                    ActivityEntity(scheduleId = work, title = r.getString(R.string.seed_walk), emoji = "🌳", daysMask = weekend, startMinute = 11 * 60, endMinute = 12 * 60 + 30, colorIndex = 2, reminderMinutes = 30),
-                )
-            )
-            val holidays = scheduleDao.insert(
-                ScheduleEntity(name = r.getString(R.string.seed_schedule_holidays), emoji = "🏖️", colorIndex = 2, isActive = false)
-            )
-            activityDao.insertAll(
-                listOf(
-                    ActivityEntity(scheduleId = holidays, title = r.getString(R.string.seed_pool), emoji = "🏊", daysMask = all, startMinute = 12 * 60, endMinute = 14 * 60, colorIndex = 1, reminderMinutes = 15),
-                    ActivityEntity(scheduleId = holidays, title = r.getString(R.string.seed_nap), emoji = "😴", daysMask = all, startMinute = 16 * 60, endMinute = 17 * 60, colorIndex = 8, reminderMinutes = -1),
-                )
-            )
-        }
-        scheduler.rescheduleAll()
     }
 }

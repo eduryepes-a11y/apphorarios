@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Variante Google Play: sin autoactualizador. Play solo permite USE_EXACT_ALARM a
+     apps de alarma/reloj, así que usamos SCHEDULE_EXACT_ALARM (el usuario lo concede
+     en Ajustes; si no, la app sigue funcionando con avisos casi exactos). -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+</manifest>

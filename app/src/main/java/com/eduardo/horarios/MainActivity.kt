@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
         enableEdgeToEdge()
         if (savedInstanceState == null) handleImportIntent(intent)
         val settings = (application as HorariosApp).settings
+        val showOnboarding = !settings.onboarded
         setContent {
             val mode by settings.themeMode.collectAsStateWithLifecycle()
             val accent by settings.accent.collectAsStateWithLifecycle()
@@ -31,7 +32,7 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.DARK -> true
             }
             HorariosTheme(darkTheme = dark, accentIndex = accent) {
-                AppNavigation()
+                AppNavigation(showOnboarding = showOnboarding)
             }
         }
     }

@@ -33,6 +33,13 @@ class SettingsStore(context: Context) {
         _accent.value = index
     }
 
+    /** true cuando ya se ha completado la bienvenida. */
+    val onboarded: Boolean get() = prefs.getBoolean(KEY_ONBOARDED, false)
+
+    fun setOnboarded() {
+        prefs.edit().putBoolean(KEY_ONBOARDED, true).apply()
+    }
+
     /** "" = idioma del sistema, "es", "en". */
     val language: String get() = prefs.getString(KEY_LANGUAGE, "") ?: ""
 
@@ -48,6 +55,7 @@ class SettingsStore(context: Context) {
         const val KEY_THEME = "theme_mode"
         const val KEY_ACCENT = "accent"
         const val KEY_LANGUAGE = "language"
+        const val KEY_ONBOARDED = "onboarded"
         val LANGUAGES = listOf("", "es", "en")
     }
 }

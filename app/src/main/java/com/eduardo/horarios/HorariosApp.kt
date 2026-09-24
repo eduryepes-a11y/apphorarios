@@ -31,8 +31,12 @@ class HorariosApp : Application() {
         database = AppDatabase.get(this)
         scheduler = AlarmScheduler(this, database)
         repository = HorariosRepository(this, database, scheduler)
+        // Quien ya usaba la app (versiones anteriores) no ve la bienvenida
+        if (!settings.onboarded && getSharedPreferences("app", MODE_PRIVATE).getBoolean("seeded", false)) {
+            settings.setOnboarded()
+        }
         appScope.launch {
-            repository.seedIfFirstLaunch()
+            repository.cleanOldOverrides()
             scheduler.rescheduleAll()
         }
     }

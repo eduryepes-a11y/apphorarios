@@ -95,10 +95,15 @@ object Notifications {
 
     /** Aviso previo: "Empieza en 10 min". */
     @SuppressLint("MissingPermission")
-    fun showReminder(context: Context, activity: ActivityEntity): Boolean {
+    fun showReminder(
+        context: Context,
+        activity: ActivityEntity,
+        start: Int = activity.startMinute,
+        end: Int = activity.endMinute,
+    ): Boolean {
         if (!canPost(context)) return false
         val r = context.localized()
-        val range = "${hm(activity.startMinute)} – ${hm(activity.endMinute)}"
+        val range = "${hm(start)} – ${hm(end)}"
         val text = if (activity.reminderMinutes == 0) {
             r.getString(R.string.notif_starts_now, range)
         } else {
@@ -124,16 +129,21 @@ object Notifications {
 
     /** Notificación "empieza ahora", con botón «Hecho». Sustituye al aviso previo. */
     @SuppressLint("MissingPermission")
-    fun showStart(context: Context, activity: ActivityEntity): Boolean {
+    fun showStart(
+        context: Context,
+        activity: ActivityEntity,
+        start: Int = activity.startMinute,
+        end: Int = activity.endMinute,
+    ): Boolean {
         if (!canPost(context)) return false
         val r = context.localized()
         val manager = NotificationManagerCompat.from(context)
         manager.cancel(beforeId(activity.id))
 
-        val duration = durationLabel(r, activity.endMinute - activity.startMinute)
+        val duration = durationLabel(r, end - start)
         val text = r.getString(
             R.string.notif_start_text,
-            "${hm(activity.startMinute)} – ${hm(activity.endMinute)}",
+            "${hm(start)} – ${hm(end)}",
             duration,
         )
         val bigText = if (activity.notes.isBlank()) text else "$text\n${activity.notes}"
@@ -159,7 +169,7 @@ object Notifications {
             .setAutoCancel(true)
             .setContentIntent(openAppIntent(context))
             .addAction(0, r.getString(R.string.notif_action_done), donePi)
-            .setTimeoutAfter((activity.endMinute - activity.startMinute).coerceAtLeast(1) * 60_000L)
+            .setTimeoutAfter((end - start).coerceAtLeast(1) * 60_000L)
             .build()
 
         manager.notify(startId(activity.id), notification)

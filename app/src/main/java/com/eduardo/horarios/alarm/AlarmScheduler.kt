@@ -10,6 +10,9 @@ import com.eduardo.horarios.R
 import com.eduardo.horarios.data.localized
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.AppDatabase
+import com.eduardo.horarios.data.OverrideEntity
+import com.eduardo.horarios.data.Planner
+import java.time.LocalDate
 import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
@@ -97,11 +100,12 @@ class AlarmScheduler(
                 val codes = mutableSetOf<String>()
                 val active = db.scheduleDao().getActive()
                 if (active != null) {
+                    val overrides = loadOverrides(active.id)
                     for (activity in db.activityDao().getForSchedule(active.id)) {
                         for (kind in kindsFor(activity)) {
                             for (day in 0..6) {
                                 if (activity.daysMask.hasDay(day)) {
-                                    codes += schedule(activity, day, kind).toString()
+                                    codes += schedule(activity, day, kind, overrides = overrides).toString()
                                 }
                             }
                         }
@@ -115,15 +119,25 @@ class AlarmScheduler(
         }
     }
 
-    /** Programa la próxima ocurrencia posterior a [after]. Devuelve el requestCode usado. */
+    /** Cambios puntuales (días libres, saltos, retrasos) de las próximas semanas. */
+    suspend fun loadOverrides(scheduleId: Long): List<OverrideEntity> {
+        val today = LocalDate.now().toEpochDay()
+        return db.overrideDao().getRange(scheduleId, today - 1, today + 40)
+    }
+
+    /**
+     * Programa la próxima ocurrencia posterior a [after], saltando los días en que la actividad
+     * se ha cancelado y aplicando los retrasos. Devuelve el requestCode usado.
+     */
     fun schedule(
         activity: ActivityEntity,
         day: Int,
         kind: Int,
         after: Long = System.currentTimeMillis(),
+        overrides: List<OverrideEntity> = emptyList(),
     ): Int {
         val code = requestCode(activity.id, day, kind)
-        val trigger = nextTrigger(day, triggerMinute(activity, kind), after)
+        val trigger = triggerFor(activity, day, kind, after, overrides)
         val pi = PendingIntent.getBroadcast(
             context,
             code,
@@ -159,11 +173,12 @@ class AlarmScheduler(
     suspend fun nextReminder(): NextReminder? = withContext(Dispatchers.IO) {
         val active = db.scheduleDao().getActive() ?: return@withContext null
         val now = System.currentTimeMillis()
+        val overrides = loadOverrides(active.id)
         db.activityDao().getForSchedule(active.id)
             .flatMap { a ->
                 kindsFor(a).flatMap { kind ->
                     (0..6).filter { a.daysMask.hasDay(it) }.map { day ->
-                        NextReminder(a, nextTrigger(day, triggerMinute(a, kind), now), kind)
+                        NextReminder(a, triggerFor(a, day, kind, now, overrides), kind)
                     }
                 }
             }
@@ -217,6 +232,24 @@ class AlarmScheduler(
         const val ACTION_TEST = "com.eduardo.horarios.TEST"
 
         fun requestCode(activityId: Long, day: Int, kind: Int): Int = ((activityId * 7 + day) * 2 + kind).toInt()
+
+        /** Próximo aviso de ([activity], [day], [kind]) después de [after], teniendo en cuenta los cambios puntuales. */
+        fun triggerFor(activity: ActivityEntity, day: Int, kind: Int, after: Long, overrides: List<OverrideEntity>): Long {
+            if (overrides.isEmpty()) return nextTrigger(day, triggerMinute(activity, kind), after)
+            val zone = ZoneId.systemDefault()
+            val base = Instant.ofEpochMilli(after).atZone(zone).toLocalDate()
+            for (offset in -1L..42L) {
+                val date = base.plusDays(offset)
+                if (date.dayOfWeek.value - 1 != day) continue
+                val o = Planner.overridesFor(date.toEpochDay(), overrides)
+                if (Planner.isSkipped(activity.id, o)) continue
+                val start = Planner.shiftedStart(activity.startMinute, o)
+                val minute = if (kind == KIND_START) start else start - activity.reminderMinutes
+                val millis = date.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+                if (millis > after) return millis
+            }
+            return nextTrigger(day, triggerMinute(activity, kind), after)
+        }
 
         fun triggerMinute(activity: ActivityEntity, kind: Int): Int =
             if (kind == KIND_START) activity.startMinute else activity.startMinute - activity.reminderMinutes

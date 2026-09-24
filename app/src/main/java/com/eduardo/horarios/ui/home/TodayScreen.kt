@@ -2,20 +2,17 @@
 
 package com.eduardo.horarios.ui.home
 
-import androidx.compose.ui.ExperimentalComposeUiApi
-import android.Manifest
 import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,7 +26,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -39,18 +35,23 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AlarmOn
-import androidx.compose.material.icons.rounded.CalendarMonth
-import androidx.compose.material.icons.rounded.CalendarViewWeek
-import androidx.compose.material.icons.rounded.ViewDay
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -58,15 +59,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -75,8 +74,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -85,27 +88,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.eduardo.horarios.BuildConfig
+import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.R
+import com.eduardo.horarios.data.PlannedActivity
+import com.eduardo.horarios.data.ScheduleEntity
 import com.eduardo.horarios.dayName
 import com.eduardo.horarios.dayShort
-import com.eduardo.horarios.dateOfThisWeek
-import androidx.compose.foundation.border
-import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.Insights
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.pluralStringResource
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextDecoration
-import com.eduardo.horarios.HorariosApp
-import com.eduardo.horarios.data.ActivityEntity
-import com.eduardo.horarios.data.ScheduleEntity
 import com.eduardo.horarios.durationLabel
-import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.hm
 import com.eduardo.horarios.nowMinuteOfDay
 import com.eduardo.horarios.reminderShort
-import com.eduardo.horarios.todayIndex
 import com.eduardo.horarios.ui.components.EmojiBubble
 import com.eduardo.horarios.ui.components.Pill
 import com.eduardo.horarios.ui.theme.StatusBarIcons
@@ -117,35 +110,41 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-
+/** Reloj interno (minuto del día) que se actualiza solo. */
 @Composable
-fun HomeScreen(
-    onOpenSchedules: () -> Unit,
-    onAddActivity: (day: Int) -> Unit,
-    onEditActivity: (id: Long) -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenStats: () -> Unit,
-    vm: HomeViewModel = viewModel(factory = HomeViewModel.Factory),
-) {
-    StatusBarIcons(darkIcons = false)
-    val state by vm.state.collectAsStateWithLifecycle()
-    var selectedDay by rememberSaveable { mutableIntStateOf(todayIndex()) }
-    var weekMode by rememberSaveable { mutableStateOf(false) }
-
-    // Reloj interno para "Ahora / Siguiente"
-    val nowMinute by produceState(initialValue = nowMinuteOfDay()) {
+fun rememberNowMinute(): Int {
+    val now by produceState(initialValue = nowMinuteOfDay()) {
         while (true) {
             delay(15_000)
             value = nowMinuteOfDay()
         }
     }
-    val today = todayIndex()
-    val todayActs = remember(state.activities, today) {
-        state.activities.filter { it.daysMask.hasDay(today) }.sortedBy { it.startMinute }
+    return now
+}
+
+@Composable
+fun TodayScreen(
+    onOpenSchedules: () -> Unit,
+    onAddActivity: (day: Int) -> Unit,
+    onEditActivity: (id: Long) -> Unit,
+    onBulkAdd: (day: Int) -> Unit,
+    vm: PlanViewModel = viewModel(factory = PlanViewModel.Factory),
+) {
+    StatusBarIcons(darkIcons = false)
+    val state by vm.state.collectAsStateWithLifecycle()
+    val nowMinute = rememberNowMinute()
+    val today = LocalDate.now()
+    val date = state.date
+    val dayIndex = date.dayOfWeek.value - 1
+
+    val todayPlan = remember(state.activities, state.overrides, today) {
+        state.plan(today).filter { !it.skipped }
     }
-    val dayActs = remember(state.activities, selectedDay) {
-        state.activities.filter { it.daysMask.hasDay(selectedDay) }.sortedBy { it.startMinute }
-    }
+    val dayPlan = remember(state.activities, state.overrides, date) { state.plan(date) }
+    val dayOverrides = state.dayOverrides(date)
+
+    var sheetFor by remember { mutableStateOf<PlannedActivity?>(null) }
+    var showDelay by remember { mutableStateOf(false) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -153,13 +152,12 @@ fun HomeScreen(
         floatingActionButton = {
             if (state.schedule != null) {
                 ExtendedFloatingActionButton(
-                    onClick = { onAddActivity(selectedDay) },
+                    onClick = { onAddActivity(dayIndex) },
                     icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
                     text = { Text(stringResource(R.string.add)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier.navigationBarsPadding(),
                 )
             }
         },
@@ -168,148 +166,100 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(bottom = 120.dp),
+            contentPadding = PaddingValues(bottom = 96.dp),
         ) {
             item(key = "header") {
                 Header(
                     schedule = state.schedule,
-                    todayActs = todayActs,
+                    todayPlan = todayPlan,
                     nowMinute = nowMinute,
+                    todayDelay = state.dayOverrides(today).totalShift,
                     onOpenSchedules = onOpenSchedules,
-                    onOpenSettings = onOpenSettings,
-                    onOpenStats = onOpenStats,
+                    onDelay = { showDelay = true },
                 )
             }
             item(key = "banners") { PermissionBanners(vm) }
-            item(key = "update") { UpdateCard() }
+            if (BuildConfig.SELF_UPDATE) {
+                item(key = "update") { UpdateCard() }
+            }
 
             if (!state.loading && state.schedule == null) {
                 item(key = "noSchedule") { NoScheduleState(onOpenSchedules) }
                 return@LazyColumn
             }
 
-            item(key = "mode") {
-                ViewModeToggle(weekMode = weekMode, onChange = { weekMode = it })
+            item(key = "days") {
+                WeekDaySelector(
+                    state = state,
+                    onSelect = { DaySelection.select(it) },
+                )
             }
-
-            if (weekMode) {
-                item(key = "weekTitle") { WeekTitle(state.activities) }
-                item(key = "weekGrid") {
-                    WeekGrid(
-                        activities = state.activities,
-                        today = today,
-                        nowMinute = nowMinute,
-                        onActivityClick = onEditActivity,
-                        onDayClick = { d ->
-                            selectedDay = d
-                            weekMode = false
-                        },
-                    )
-                }
-            } else {
-                item(key = "days") {
-                    DaySelector(
-                        selected = selectedDay,
-                        today = today,
-                        activities = state.activities,
-                        onSelect = { selectedDay = it },
-                    )
-                }
-                item(key = "dayTitle") {
-                    DayTitle(day = selectedDay, isToday = selectedDay == today, acts = dayActs)
-                }
-                if (dayActs.isEmpty() && !state.loading) {
-                    item(key = "empty") { EmptyDay() }
-                }
-                items(dayActs, key = { it.id }) { act ->
-                    val selectedEpoch = dateOfThisWeek(selectedDay).toEpochDay()
-                    val isDone = (act.id to selectedEpoch) in state.done
-                    TimelineRow(
-                        activity = act,
-                        isToday = selectedDay == today,
-                        nowMinute = nowMinute,
-                        isLast = act == dayActs.last(),
-                        done = isDone,
-                        canMarkDone = selectedEpoch <= LocalDate.now().toEpochDay(),
-                        onToggleDone = { vm.setDone(act.id, selectedEpoch, !isDone) },
-                        onClick = { onEditActivity(act.id) },
-                        modifier = Modifier.animateItem(),
-                    )
-                }
+            item(key = "dayTitle") {
+                DayTitle(
+                    date = date,
+                    plan = dayPlan,
+                    dayOff = dayOverrides.dayOff,
+                    delay = dayOverrides.totalShift,
+                    onToggleDayOff = { vm.setDayOff(date, !dayOverrides.dayOff) },
+                    onResetDelay = { vm.resetDelays(date) },
+                )
+            }
+            if (dayOverrides.dayOff) {
+                item(key = "dayOff") { DayOffCard(onUndo = { vm.setDayOff(date, false) }) }
+            }
+            if (dayPlan.isEmpty() && !state.loading) {
+                item(key = "empty") { EmptyDay(onBulkAdd = { onBulkAdd(dayIndex) }) }
+            }
+            items(dayPlan, key = { it.activity.id }) { p ->
+                TimelineRow(
+                    planned = p,
+                    isToday = date == today,
+                    nowMinute = nowMinute,
+                    isLast = p == dayPlan.last(),
+                    done = state.isDone(p),
+                    canMarkDone = !date.isAfter(today) && !p.skipped,
+                    onToggleDone = { vm.setDone(p, !state.isDone(p)) },
+                    onClick = { sheetFor = p },
+                    modifier = Modifier.animateItem(),
+                )
             }
         }
     }
-}
 
-// ------------------------------------------------------------------
-// Selector Día / Semana
-// ------------------------------------------------------------------
-
-@Composable
-private fun ViewModeToggle(weekMode: Boolean, onChange: (Boolean) -> Unit) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(18.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp),
-    ) {
-        Row(Modifier.padding(4.dp)) {
-            ModeSegment(stringResource(R.string.view_day), Icons.Rounded.ViewDay, selected = !weekMode, modifier = Modifier.weight(1f)) { onChange(false) }
-            ModeSegment(stringResource(R.string.view_week), Icons.Rounded.CalendarViewWeek, selected = weekMode, modifier = Modifier.weight(1f)) { onChange(true) }
-        }
+    sheetFor?.let { p ->
+        val done = state.isDone(p)
+        ActivitySheet(
+            planned = p,
+            done = done,
+            canMarkDone = !p.date.isAfter(today),
+            onToggleDone = {
+                vm.setDone(p, !done)
+                sheetFor = null
+            },
+            onToggleSkip = {
+                vm.setSkipped(p, !p.skipped)
+                sheetFor = null
+            },
+            onEdit = {
+                sheetFor = null
+                onEditActivity(p.activity.id)
+            },
+            onDismiss = { sheetFor = null },
+        )
     }
-}
-
-@Composable
-private fun ModeSegment(
-    label: String,
-    icon: ImageVector,
-    selected: Boolean,
-    modifier: Modifier = Modifier,
-    onClick: () -> Unit,
-) {
-    val bg by animateColorAsState(
-        if (selected) MaterialTheme.colorScheme.surface else Color.Transparent,
-        label = "segment",
-    )
-    val fg = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-    Row(
-        modifier = modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(bg)
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Text(label, style = MaterialTheme.typography.labelLarge, color = fg)
-    }
-}
-
-@Composable
-private fun WeekTitle(acts: List<ActivityEntity>) {
-    val totalMin = acts.sumOf { a ->
-        val days = (0..6).count { a.daysMask.hasDay(it) }
-        (a.endMinute - a.startMinute).coerceAtLeast(0) * days
-    }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 12.dp),
-        verticalAlignment = Alignment.Bottom,
-    ) {
-        Text(stringResource(R.string.your_week), style = MaterialTheme.typography.titleLarge)
-        Spacer(Modifier.weight(1f))
-        if (acts.isNotEmpty()) {
-            Text(
-                stringResource(R.string.week_scheduled, durationLabel(LocalContext.current, totalMin)),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+    if (showDelay) {
+        DelaySheet(
+            currentDelay = state.dayOverrides(today).totalShift,
+            onDelay = {
+                vm.delayToday(it)
+                showDelay = false
+            },
+            onReset = {
+                vm.resetDelays(today)
+                showDelay = false
+            },
+            onDismiss = { showDelay = false },
+        )
     }
 }
 
@@ -320,11 +270,11 @@ private fun WeekTitle(acts: List<ActivityEntity>) {
 @Composable
 private fun Header(
     schedule: ScheduleEntity?,
-    todayActs: List<ActivityEntity>,
+    todayPlan: List<PlannedActivity>,
     nowMinute: Int,
+    todayDelay: Int,
     onOpenSchedules: () -> Unit,
-    onOpenSettings: () -> Unit,
-    onOpenStats: () -> Unit,
+    onDelay: () -> Unit,
 ) {
     val base = schedule?.let { paletteColor(it.colorIndex) } ?: MaterialTheme.colorScheme.primary
     val animatedBase by animateColorAsState(base, label = "headerColor")
@@ -339,7 +289,7 @@ private fun Header(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 36.dp, bottomEnd = 36.dp))
+            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
             .background(headerBrush(animatedBase))
             .drawBehind {
                 drawCircle(
@@ -354,74 +304,45 @@ private fun Header(
                 )
             }
             .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
     ) {
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        dateText,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = Color.White.copy(alpha = 0.8f),
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable(onClick = onOpenSchedules)
-                            .padding(vertical = 2.dp),
-                    ) {
-                        Text(
-                            text = schedule?.let { "${it.emoji}  ${it.name}" } ?: stringResource(R.string.no_schedule),
-                            style = MaterialTheme.typography.headlineSmall,
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false),
-                        )
-                        Icon(
-                            Icons.Rounded.KeyboardArrowDown,
-                            contentDescription = stringResource(R.string.change_schedule),
-                            tint = Color.White,
-                        )
-                    }
-                }
-                HeaderButton(Icons.Rounded.Insights, stringResource(R.string.stats), onOpenStats)
-                Spacer(Modifier.width(8.dp))
-                HeaderButton(Icons.Rounded.CalendarMonth, stringResource(R.string.my_schedules), onOpenSchedules)
-                Spacer(Modifier.width(8.dp))
-                HeaderButton(Icons.Rounded.Settings, stringResource(R.string.settings), onOpenSettings)
+            Text(dateText, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
+            Spacer(Modifier.height(2.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onOpenSchedules)
+                    .padding(vertical = 2.dp),
+            ) {
+                Text(
+                    text = schedule?.let { "${it.emoji}  ${it.name}" } ?: stringResource(R.string.no_schedule),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.change_schedule), tint = Color.White)
             }
-            Spacer(Modifier.height(18.dp))
-            NowNextCard(schedule = schedule, todayActs = todayActs, nowMinute = nowMinute)
+            Spacer(Modifier.height(16.dp))
+            NowNextCard(schedule, todayPlan, nowMinute, todayDelay, onDelay)
         }
-    }
-}
-
-@Composable
-private fun HeaderButton(icon: ImageVector, description: String, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White.copy(alpha = 0.18f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, contentDescription = description, tint = Color.White, modifier = Modifier.size(22.dp))
     }
 }
 
 @Composable
 private fun NowNextCard(
     schedule: ScheduleEntity?,
-    todayActs: List<ActivityEntity>,
+    todayPlan: List<PlannedActivity>,
     nowMinute: Int,
+    todayDelay: Int,
+    onDelay: () -> Unit,
 ) {
     val context = LocalContext.current
-    val current = todayActs.firstOrNull { nowMinute >= it.startMinute && nowMinute < it.endMinute }
-    val next = todayActs.firstOrNull { it.startMinute > nowMinute }
+    val current = todayPlan.firstOrNull { nowMinute >= it.start && nowMinute < it.end }
+    val next = todayPlan.firstOrNull { it.start > nowMinute }
 
     Surface(
         color = Color.White.copy(alpha = 0.16f),
@@ -438,15 +359,15 @@ private fun NowNextCard(
                 )
 
                 current != null -> {
-                    val total = (current.endMinute - current.startMinute).coerceAtLeast(1)
-                    val done = (nowMinute - current.startMinute).coerceIn(0, total)
+                    val total = (current.end - current.start).coerceAtLeast(1)
+                    val done = (nowMinute - current.start).coerceIn(0, total)
                     GlassRow(
-                        emoji = current.emoji,
+                        emoji = current.activity.emoji,
                         label = stringResource(R.string.now_label),
-                        title = current.title,
+                        title = current.activity.title,
                         subtitle = stringResource(
                             R.string.now_subtitle,
-                            "${hm(current.startMinute)} – ${hm(current.endMinute)}",
+                            "${hm(current.start)} – ${hm(current.end)}",
                             durationLabel(context, total - done),
                         ),
                     )
@@ -465,7 +386,7 @@ private fun NowNextCard(
                         HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
                         Spacer(Modifier.height(10.dp))
                         Text(
-                            stringResource(R.string.after_next, "${next.emoji} ${next.title}", hm(next.startMinute)),
+                            stringResource(R.string.after_next, "${next.activity.emoji} ${next.activity.title}", hm(next.start)),
                             color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium,
                             maxLines = 1,
@@ -475,17 +396,17 @@ private fun NowNextCard(
                 }
 
                 next != null -> GlassRow(
-                    emoji = next.emoji,
+                    emoji = next.activity.emoji,
                     label = stringResource(R.string.next_label),
-                    title = next.title,
+                    title = next.activity.title,
                     subtitle = stringResource(
                         R.string.next_subtitle,
-                        hm(next.startMinute),
-                        durationLabel(context, next.startMinute - nowMinute),
+                        hm(next.start),
+                        durationLabel(context, next.start - nowMinute),
                     ),
                 )
 
-                todayActs.isEmpty() -> GlassRow(
+                todayPlan.isEmpty() -> GlassRow(
                     emoji = "🌤️",
                     label = stringResource(R.string.today_label),
                     title = stringResource(R.string.day_free),
@@ -498,6 +419,31 @@ private fun NowNextCard(
                     title = stringResource(R.string.day_completed),
                     subtitle = stringResource(R.string.day_completed_sub),
                 )
+            }
+
+            // «Voy con retraso»: solo si aún queda algo por empezar hoy
+            if (next != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(50))
+                        .background(Color.White.copy(alpha = 0.14f))
+                        .clickable(onClick = onDelay)
+                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Timer, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        if (todayDelay > 0) {
+                            stringResource(R.string.delayed_by, durationLabel(context, todayDelay))
+                        } else {
+                            stringResource(R.string.running_late)
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White,
+                    )
+                }
             }
         }
     }
@@ -523,24 +469,15 @@ private fun GlassRow(emoji: String, label: String, title: String, subtitle: Stri
 }
 
 // ------------------------------------------------------------------
-// Avisos de permisos
+// Avisos de permisos (solo si falta algo; sin pedir nada automáticamente)
 // ------------------------------------------------------------------
 
 @Composable
-private fun PermissionBanners(vm: HomeViewModel) {
+private fun PermissionBanners(vm: PlanViewModel) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(areNotificationsOn(context)) }
     var exactOn by remember { mutableStateOf(canExact(context)) }
 
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        notificationsOn = areNotificationsOn(context)
-    }
-
-    LaunchedEffect(Unit) {
-        if (!notificationsOn && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
-    }
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         notificationsOn = areNotificationsOn(context)
         val newExact = canExact(context)
@@ -556,9 +493,10 @@ private fun PermissionBanners(vm: HomeViewModel) {
                 text = stringResource(R.string.banner_notif_text),
                 action = stringResource(R.string.enable),
                 onAction = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    context.startActivity(intent)
+                    context.startActivity(
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                    )
                 },
             )
         }
@@ -588,13 +526,7 @@ private fun canExact(context: Context): Boolean =
         context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
 @Composable
-private fun Banner(
-    icon: ImageVector,
-    title: String,
-    text: String,
-    action: String,
-    onAction: () -> Unit,
-) {
+private fun Banner(icon: ImageVector, title: String, text: String, action: String, onAction: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
         shape = RoundedCornerShape(20.dp),
@@ -602,7 +534,10 @@ private fun Banner(
             .fillMaxWidth()
             .padding(top = 16.dp),
     ) {
-        Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
@@ -615,58 +550,154 @@ private fun Banner(
 }
 
 // ------------------------------------------------------------------
-// Selector de días
+// Selector de semana y días
 // ------------------------------------------------------------------
 
+/** «22 – 28 sep» */
 @Composable
-private fun DaySelector(
-    selected: Int,
-    today: Int,
-    activities: List<ActivityEntity>,
-    onSelect: (Int) -> Unit,
+fun weekRangeLabel(weekStart: LocalDate): String {
+    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val end = weekStart.plusDays(6)
+    val month = DateTimeFormatter.ofPattern("d MMM", locale)
+    return if (weekStart.month == end.month) {
+        "${weekStart.dayOfMonth} – ${end.format(month)}"
+    } else {
+        "${weekStart.format(month)} – ${end.format(month)}"
+    }
+}
+
+/** Flechas para cambiar de semana + botón «Hoy» si no estás en la semana actual. */
+@Composable
+fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifier = Modifier) {
+    Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = { DaySelection.moveWeeks(-1) }) {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_week))
+        }
+        Text(
+            if (isCurrentWeek) stringResource(R.string.this_week) else weekRangeLabel(weekStart),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.Center,
+        )
+        IconButton(onClick = { DaySelection.moveWeeks(1) }) {
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = stringResource(R.string.next_week))
+        }
+        AnimatedVisibility(!isCurrentWeek) {
+            TextButton(onClick = { DaySelection.goToday() }) { Text(stringResource(R.string.today)) }
+        }
+    }
+}
+
+@Composable
+private fun WeekDaySelector(state: PlanState, onSelect: (LocalDate) -> Unit) {
+    val context = LocalContext.current
+    val today = LocalDate.now()
+    Column(Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp)) {
+        WeekNavigator(state.weekStart, state.isCurrentWeek)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            for (d in 0..6) {
+                val date = state.weekStart.plusDays(d.toLong())
+                val isSel = date == state.date
+                val isToday = date == today
+                val plan = state.plan(date)
+                val hasItems = plan.any { !it.skipped }
+                val bg by animateColorAsState(
+                    if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
+                    label = "dayBg",
+                )
+                val fg = if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                Surface(
+                    onClick = { onSelect(date) },
+                    color = bg,
+                    shape = RoundedCornerShape(18.dp),
+                    shadowElevation = if (isSel) 6.dp else 0.dp,
+                    border = if (isToday && !isSel) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(66.dp),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+                        Text(dayShort(context, d), style = MaterialTheme.typography.labelMedium, color = fg.copy(alpha = 0.8f))
+                        Text("${date.dayOfMonth}", style = MaterialTheme.typography.titleMedium, color = fg)
+                        Spacer(Modifier.height(3.dp))
+                        Box(
+                            Modifier
+                                .size(5.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    when {
+                                        !hasItems -> Color.Transparent
+                                        isSel -> MaterialTheme.colorScheme.onPrimary
+                                        else -> MaterialTheme.colorScheme.primary
+                                    }
+                                )
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DayTitle(
+    date: LocalDate,
+    plan: List<PlannedActivity>,
+    dayOff: Boolean,
+    delay: Int,
+    onToggleDayOff: () -> Unit,
+    onResetDelay: () -> Unit,
 ) {
+    val context = LocalContext.current
+    val active = plan.filter { !it.skipped }
+    val totalMin = active.sumOf { (it.end - it.start).coerceAtLeast(0) }
+    var menu by remember { mutableStateOf(false) }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .padding(start = 20.dp, end = 8.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        for (d in 0..6) {
-            val isSel = d == selected
-            val isToday = d == today
-            val hasItems = activities.any { it.daysMask.hasDay(d) }
-            val bg by animateColorAsState(
-                if (isSel) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface,
-                label = "dayBg",
-            )
-            val fg = if (isSel) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-            Surface(
-                onClick = { onSelect(d) },
-                color = bg,
-                shape = RoundedCornerShape(18.dp),
-                shadowElevation = if (isSel) 8.dp else 0.dp,
-                border = if (isToday && !isSel) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(64.dp),
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(dayShort(LocalContext.current, d), style = MaterialTheme.typography.titleMedium, color = fg)
-                    Spacer(Modifier.height(6.dp))
-                    Box(
-                        Modifier
-                            .size(6.dp)
-                            .clip(CircleShape)
-                            .background(
-                                when {
-                                    !hasItems -> Color.Transparent
-                                    isSel -> MaterialTheme.colorScheme.onPrimary
-                                    else -> MaterialTheme.colorScheme.primary
-                                }
-                            )
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(dayName(context, date.dayOfWeek.value - 1), style = MaterialTheme.typography.titleLarge)
+                if (date == LocalDate.now()) {
+                    Spacer(Modifier.width(8.dp))
+                    Pill(stringResource(R.string.today_badge), MaterialTheme.colorScheme.primary)
+                }
+            }
+            if (active.isNotEmpty()) {
+                Text(
+                    pluralStringResource(R.plurals.activities_count, active.size, active.size) + " · " + durationLabel(context, totalMin),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Box {
+            IconButton(onClick = { menu = true }) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
+            }
+            DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(if (dayOff) R.string.remove_day_off else R.string.mark_day_off)) },
+                    onClick = {
+                        menu = false
+                        onToggleDayOff()
+                    },
+                )
+                if (delay > 0) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delay_reset)) },
+                        onClick = {
+                            menu = false
+                            onResetDelay()
+                        },
                     )
                 }
             }
@@ -675,26 +706,26 @@ private fun DaySelector(
 }
 
 @Composable
-private fun DayTitle(day: Int, isToday: Boolean, acts: List<ActivityEntity>) {
-    val totalMin = acts.sumOf { (it.endMinute - it.startMinute).coerceAtLeast(0) }
-    Row(
+private fun DayOffCard(onUndo: () -> Unit) {
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, end = 20.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.Bottom,
+            .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
-        Text(dayName(LocalContext.current, day), style = MaterialTheme.typography.titleLarge)
-        if (isToday) {
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.padding(bottom = 4.dp)) { Pill(stringResource(R.string.today_badge), MaterialTheme.colorScheme.primary) }
-        }
-        Spacer(Modifier.weight(1f))
-        if (acts.isNotEmpty()) {
-            Text(
-                pluralStringResource(R.plurals.activities_count, acts.size, acts.size) + " · " + durationLabel(LocalContext.current, totalMin),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("🌴", fontSize = 22.sp)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.day_off_title), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    stringResource(R.string.day_off_text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                )
+            }
+            TextButton(onClick = onUndo) { Text(stringResource(R.string.undo)) }
         }
     }
 }
@@ -705,7 +736,7 @@ private fun DayTitle(day: Int, isToday: Boolean, acts: List<ActivityEntity>) {
 
 @Composable
 private fun TimelineRow(
-    activity: ActivityEntity,
+    planned: PlannedActivity,
     isToday: Boolean,
     nowMinute: Int,
     isLast: Boolean,
@@ -715,16 +746,16 @@ private fun TimelineRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val color = paletteColor(activity.colorIndex)
-    val isNow = isToday && nowMinute >= activity.startMinute && nowMinute < activity.endMinute
-    val isPast = isToday && nowMinute >= activity.endMinute
+    val color = paletteColor(planned.activity.colorIndex)
+    val isNow = isToday && !planned.skipped && nowMinute >= planned.start && nowMinute < planned.end
+    val isPast = isToday && nowMinute >= planned.end
 
     Row(
         modifier = modifier
             .fillMaxWidth()
             .height(IntrinsicSize.Min)
             .padding(horizontal = 16.dp)
-            .alpha(if (isPast && !done) 0.5f else 1f),
+            .alpha(if (planned.skipped) 0.45f else if (isPast && !done) 0.55f else 1f),
     ) {
         Column(
             modifier = Modifier
@@ -732,14 +763,13 @@ private fun TimelineRow(
                 .padding(top = 14.dp),
             horizontalAlignment = Alignment.End,
         ) {
-            Text(hm(activity.startMinute), style = MaterialTheme.typography.labelLarge)
+            Text(hm(planned.start), style = MaterialTheme.typography.labelLarge)
             Text(
-                hm(activity.endMinute),
+                hm(planned.end),
                 style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        // Punto + línea vertical
         Box(
             modifier = Modifier
                 .width(28.dp)
@@ -764,7 +794,7 @@ private fun TimelineRow(
             )
         }
         ActivityCard(
-            activity = activity,
+            planned = planned,
             color = color,
             isNow = isNow,
             done = done,
@@ -780,7 +810,7 @@ private fun TimelineRow(
 
 @Composable
 private fun ActivityCard(
-    activity: ActivityEntity,
+    planned: PlannedActivity,
     color: Color,
     isNow: Boolean,
     done: Boolean,
@@ -789,11 +819,13 @@ private fun ActivityCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
+    val activity = planned.activity
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(22.dp),
         color = MaterialTheme.colorScheme.surface,
-        shadowElevation = if (isNow) 10.dp else 1.dp,
+        shadowElevation = if (isNow) 8.dp else 1.dp,
         border = if (isNow) BorderStroke(2.dp, color) else null,
         modifier = modifier,
     ) {
@@ -810,7 +842,7 @@ private fun ActivityCard(
                     Text(
                         activity.title,
                         style = MaterialTheme.typography.titleMedium.copy(
-                            textDecoration = if (done) TextDecoration.LineThrough else null,
+                            textDecoration = if (done || planned.skipped) TextDecoration.LineThrough else null,
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -822,11 +854,16 @@ private fun ActivityCard(
                     }
                 }
                 Text(
-                    durationLabel(LocalContext.current, activity.endMinute - activity.startMinute),
+                    when {
+                        planned.skipped -> stringResource(R.string.skipped_this_day)
+                        planned.shift != 0 -> durationLabel(context, planned.end - planned.start) + " · " +
+                            stringResource(R.string.delayed_by, durationLabel(context, planned.shift))
+                        else -> durationLabel(context, planned.end - planned.start)
+                    },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (planned.shift != 0 && !planned.skipped) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (activity.notes.isNotBlank()) {
+                if (activity.notes.isNotBlank() && !planned.skipped) {
                     Text(
                         activity.notes,
                         style = MaterialTheme.typography.bodySmall,
@@ -836,26 +873,27 @@ private fun ActivityCard(
                     )
                 }
             }
-            Spacer(Modifier.width(8.dp))
-            val hasReminder = activity.reminderMinutes >= 0
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(
-                    if (hasReminder) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-                    contentDescription = null,
-                    tint = if (hasReminder) color else MaterialTheme.colorScheme.outline,
-                    modifier = Modifier.size(18.dp),
-                )
-                if (hasReminder) {
-                    Text(
-                        reminderShort(LocalContext.current, activity.reminderMinutes),
-                        fontSize = 10.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
             if (canMarkDone) {
                 Spacer(Modifier.width(10.dp))
                 DoneButton(done = done, color = color, onClick = onToggleDone)
+            } else if (!planned.skipped) {
+                val hasReminder = activity.reminderMinutes >= 0
+                Spacer(Modifier.width(8.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(
+                        if (hasReminder) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                        contentDescription = null,
+                        tint = if (hasReminder) color else MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    if (hasReminder) {
+                        Text(
+                            reminderShort(context, activity.reminderMinutes),
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
             }
         }
     }
@@ -889,14 +927,14 @@ private fun DoneButton(done: Boolean, color: Color, onClick: () -> Unit) {
 // ------------------------------------------------------------------
 
 @Composable
-private fun EmptyDay() {
+private fun EmptyDay(onBulkAdd: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp, vertical = 40.dp),
+            .padding(horizontal = 32.dp, vertical = 32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text("🌤️", fontSize = 56.sp)
+        Text("🌤️", fontSize = 52.sp)
         Spacer(Modifier.height(12.dp))
         Text(stringResource(R.string.day_free), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
@@ -906,6 +944,7 @@ private fun EmptyDay() {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        TextButton(onClick = onBulkAdd) { Text(stringResource(R.string.bulk_add_link)) }
     }
 }
 

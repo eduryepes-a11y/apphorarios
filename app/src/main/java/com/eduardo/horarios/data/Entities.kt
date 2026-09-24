@@ -70,3 +70,24 @@ data class CompletionEntity(
     val epochDay: Long,
     val completedAt: Long = System.currentTimeMillis(),
 )
+
+/**
+ * Cambio puntual en un día concreto del horario:
+ * - [TYPE_SKIP]: saltar una actividad ([activityId]) o el día entero ([activityId] = null → día libre).
+ * - [TYPE_SHIFT]: retrasar [minutes] las actividades que empiezan a partir de [fromMinute].
+ */
+@Entity(tableName = "day_overrides", indices = [Index("epochDay")])
+data class OverrideEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val scheduleId: Long,
+    val epochDay: Long,
+    val type: Int,
+    val activityId: Long? = null,
+    val fromMinute: Int = 0,
+    val minutes: Int = 0,
+) {
+    companion object {
+        const val TYPE_SKIP = 0
+        const val TYPE_SHIFT = 1
+    }
+}

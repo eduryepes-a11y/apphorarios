@@ -84,6 +84,11 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.ScheduleEntity
+import com.eduardo.horarios.data.ScheduleTemplate
+import com.eduardo.horarios.ui.components.TemplateList
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.layout.navigationBarsPadding
 import com.eduardo.horarios.ui.components.ColorPicker
 import com.eduardo.horarios.ui.components.EmojiPicker
 import com.eduardo.horarios.ui.components.Pill
@@ -118,6 +123,7 @@ class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
     fun update(s: ScheduleEntity) = viewModelScope.launch { repo.updateSchedule(s) }
     fun duplicate(s: ScheduleEntity) = viewModelScope.launch { repo.duplicateSchedule(s) }
     fun delete(s: ScheduleEntity) = viewModelScope.launch { repo.deleteSchedule(s) }
+    fun createFromTemplate(t: ScheduleTemplate) = viewModelScope.launch { repo.createFromTemplate(t, activate = false) }
     fun share(context: Context, s: ScheduleEntity) = viewModelScope.launch { BackupIO.shareSchedule(context, repo, s) }
 
     companion object {
@@ -133,7 +139,7 @@ class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
 
 @Composable
 fun SchedulesScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     vm: SchedulesViewModel = viewModel(factory = SchedulesViewModel.Factory),
 ) {
     DefaultStatusBarIcons()
@@ -147,6 +153,7 @@ fun SchedulesScreen(
 
     var editing by remember { mutableStateOf<ScheduleEntity?>(null) }
     var creating by remember { mutableStateOf(false) }
+    var choosingTemplate by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<ScheduleEntity?>(null) }
 
     Scaffold(
@@ -155,8 +162,10 @@ fun SchedulesScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.my_schedules), style = MaterialTheme.typography.titleLarge) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 actions = {
@@ -169,7 +178,7 @@ fun SchedulesScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { creating = true },
+                onClick = { choosingTemplate = true },
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
                 text = { Text(stringResource(R.string.new_schedule)) },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -209,6 +218,41 @@ fun SchedulesScreen(
                     onShare = { vm.share(context, s) },
                     onDelete = { deleting = s },
                     modifier = Modifier.animateItem(),
+                )
+            }
+        }
+    }
+
+    if (choosingTemplate) {
+        ModalBottomSheet(
+            onDismissRequest = { choosingTemplate = false },
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp)
+                    .navigationBarsPadding()
+                    .padding(bottom = 16.dp),
+            ) {
+                Text(stringResource(R.string.new_schedule), style = MaterialTheme.typography.titleLarge)
+                Text(
+                    stringResource(R.string.template_pick_text),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
+                )
+                TemplateList(
+                    onPick = { t ->
+                        choosingTemplate = false
+                        vm.createFromTemplate(t)
+                        scope.launch { snackbar.showSnackbar(context.getString(R.string.template_created, context.getString(t.nameRes))) }
+                    },
+                    onBlank = {
+                        choosingTemplate = false
+                        creating = true
+                    },
                 )
             }
         }

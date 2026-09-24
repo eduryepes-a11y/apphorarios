@@ -9,13 +9,18 @@ Una vez instalada, la app te avisa sola cuando hay versión nueva y se actualiza
 - Varios horarios (p. ej. «Semana normal», «Vacaciones»): crear, editar, duplicar, borrar y **activar** uno.
 - Actividades con icono, color, días, hora de inicio/fin y notas.
 - Avisos: X minutos antes y/o **al empezar** cada actividad. Pantalla 🔔 de diagnóstico con historial.
-- Vista **Día** (línea de tiempo) y **Semana** (cuadrícula L–D).
+- **Menú inferior** con 5 pestañas: Hoy, Semana, Horarios, Progreso y Ajustes.
+- Vista **Hoy** (línea de tiempo, navegable por semanas) y **Semana** (cuadrícula L–D).
+- **Excepciones**: saltar una actividad solo un día, marcar un **día libre/festivo** y **«Voy con retraso»** (mueve el resto del día y los avisos).
+- **Plantillas** (estudiante, oficina, turnos, hábitos) y **pegar una lista** de actividades de golpe.
+- **Bienvenida** en 3 pasos la primera vez.
 - **Widget** con todas las actividades del día.
 - **Marcar como hecha** (en la lista o desde la notificación) y **estadísticas**: % cumplido, racha y horas por actividad.
 - **Copia de seguridad** (exportar/importar) y **compartir horarios** con otras personas como archivo.
 - **Temas**: claro, oscuro o del sistema, y 8 colores para la app.
 - **Idiomas**: español e inglés (se cambia dentro de la app).
-- **Actualizaciones automáticas** desde GitHub Releases.
+- **Actualizaciones automáticas** desde GitHub Releases (variante `github`).
+- Dos variantes: `github` (APK con autoactualización) y `play` (para Google Play, sin autoactualizador). Cada Release adjunta el APK y el `.aab` para Play.
 
 ## Desarrollo
 1. Android Studio → **File › Open** → carpeta del proyecto.

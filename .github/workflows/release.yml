@@ -44,14 +44,17 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
           echo "KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      - name: Compilar APK firmado
+      - name: Compilar APK firmado (GitHub) y AAB (Google Play)
         run: |
           chmod +x gradlew
-          ./gradlew assembleRelease -PappVersionName="$VERSION" --stacktrace
-          cp app/build/outputs/apk/release/app-release.apk "Horarios-v$VERSION.apk"
+          ./gradlew assembleGithubRelease bundlePlayRelease -PappVersionName="$VERSION" --stacktrace
+          cp app/build/outputs/apk/github/release/app-github-release.apk "Horarios-v$VERSION.apk"
+          cp app/build/outputs/bundle/playRelease/app-play-release.aab "Horarios-v$VERSION-play.aab"
 
       - name: Adjuntar el APK a la Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name }}
-          files: Horarios-v${{ env.VERSION }}.apk
+          files: |
+            Horarios-v${{ env.VERSION }}.apk
+            Horarios-v${{ env.VERSION }}-play.aab

@@ -65,6 +65,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardo.horarios.HorariosApp
+import com.eduardo.horarios.BuildConfig
 import com.eduardo.horarios.R
 import com.eduardo.horarios.alarm.Notifications
 import com.eduardo.horarios.data.SettingsStore
@@ -82,7 +83,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit) {
+fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
     DefaultStatusBarIcons()
     val context = LocalContext.current
     val app = context.applicationContext as HorariosApp
@@ -124,8 +125,10 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit) {
             TopAppBar(
                 title = { Text(stringResource(R.string.settings)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
@@ -295,7 +298,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit) {
                             stringResource(R.string.app_version, UpdateManager.currentVersion(context)),
                             style = MaterialTheme.typography.titleSmall,
                         )
-                        Text(
+                        if (BuildConfig.SELF_UPDATE) Text(
                             when (val u = updateState) {
                                 UpdateState.Checking -> stringResource(R.string.update_checking)
                                 UpdateState.UpToDate -> stringResource(R.string.update_up_to_date)
@@ -309,7 +312,7 @@ fun SettingsScreen(onBack: () -> Unit, onOpenNotifications: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    TextButton(onClick = {
+                    if (BuildConfig.SELF_UPDATE) TextButton(onClick = {
                         scope.launch { UpdateManager.check(context.applicationContext, silent = false) }
                     }) { Text(stringResource(R.string.update_check)) }
                 }

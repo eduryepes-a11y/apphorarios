@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.eduardo.horarios.dayShort
 import androidx.compose.ui.platform.LocalContext
 import com.eduardo.horarios.data.ActivityEntity
+import com.eduardo.horarios.data.PlannedActivity
 import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.hm
 import com.eduardo.horarios.ui.theme.paletteColor
@@ -49,14 +50,15 @@ private val AXIS_WIDTH = 36.dp
  */
 @Composable
 fun WeekGrid(
-    activities: List<ActivityEntity>,
-    today: Int,
+    days: List<List<PlannedActivity>>,
+    today: Int?,
     nowMinute: Int,
-    onActivityClick: (Long) -> Unit,
+    onActivityClick: (PlannedActivity) -> Unit,
     onDayClick: (Int) -> Unit,
 ) {
-    val startHour = activities.minOfOrNull { it.startMinute / 60 }?.coerceAtMost(8) ?: 8
-    val endHour = (activities.maxOfOrNull { (it.endMinute + 59) / 60 }?.coerceAtLeast(20) ?: 22)
+    val all = days.flatten()
+    val startHour = all.minOfOrNull { it.start / 60 }?.coerceAtMost(8) ?: 8
+    val endHour = (all.maxOfOrNull { (it.end + 59) / 60 }?.coerceAtLeast(20) ?: 22)
         .coerceIn(startHour + 1, 24)
     val hours = endHour - startHour
     val lineColor = MaterialTheme.colorScheme.outlineVariant
@@ -125,7 +127,7 @@ fun WeekGrid(
                 // Columnas de días
                 for (d in 0..6) {
                     DayColumn(
-                        activities = activities.filter { it.daysMask.hasDay(d) },
+                        activities = days[d],
                         startHour = startHour,
                         hours = hours,
                         isToday = d == today,
@@ -145,14 +147,14 @@ fun WeekGrid(
 
 @Composable
 private fun DayColumn(
-    activities: List<ActivityEntity>,
+    activities: List<PlannedActivity>,
     startHour: Int,
     hours: Int,
     isToday: Boolean,
     nowMinute: Int,
     lineColor: Color,
     todayTint: Color,
-    onActivityClick: (Long) -> Unit,
+    onActivityClick: (PlannedActivity) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val lanes = remember(activities) { assignLanes(activities) }
@@ -172,14 +174,14 @@ private fun DayColumn(
     ) {
         val colWidth = maxWidth
         activities.forEach { a ->
-            val (lane, count) = lanes[a.id] ?: (0 to 1)
-            val top = minutesToDp(a.startMinute - startHour * 60)
-            val height = minutesToDp(a.endMinute - a.startMinute)
+            val (lane, count) = lanes[a.activity.id] ?: (0 to 1)
+            val top = minutesToDp(a.start - startHour * 60)
+            val height = minutesToDp(a.end - a.start)
             val width = colWidth / count
             ActivityBlock(
-                activity = a,
+                activity = a.activity,
                 height = height,
-                onClick = { onActivityClick(a.id) },
+                onClick = { onActivityClick(a) },
                 modifier = Modifier
                     .offset(x = width * lane, y = top)
                     .width(width)
@@ -252,33 +254,33 @@ private fun ActivityBlock(
 private fun minutesToDp(minutes: Int): Dp = HOUR_HEIGHT * (minutes / 60f)
 
 /** Reparte las actividades que se solapan en carriles, para dibujarlas lado a lado. */
-private fun assignLanes(items: List<ActivityEntity>): Map<Long, Pair<Int, Int>> {
+private fun assignLanes(items: List<PlannedActivity>): Map<Long, Pair<Int, Int>> {
     val result = HashMap<Long, Pair<Int, Int>>()
     val laneOf = HashMap<Long, Int>()
     val laneEnds = mutableListOf<Int>()
-    var cluster = mutableListOf<ActivityEntity>()
+    var cluster = mutableListOf<PlannedActivity>()
     var clusterEnd = -1
 
     fun flush() {
         val n = laneEnds.size.coerceAtLeast(1)
-        cluster.forEach { result[it.id] = (laneOf[it.id] ?: 0) to n }
+        cluster.forEach { result[it.activity.id] = (laneOf[it.activity.id] ?: 0) to n }
         cluster = mutableListOf()
         laneEnds.clear()
         clusterEnd = -1
     }
 
-    for (a in items.sortedBy { it.startMinute }) {
-        if (cluster.isNotEmpty() && a.startMinute >= clusterEnd) flush()
-        var lane = laneEnds.indexOfFirst { it <= a.startMinute }
+    for (a in items.sortedBy { it.start }) {
+        if (cluster.isNotEmpty() && a.start >= clusterEnd) flush()
+        var lane = laneEnds.indexOfFirst { it <= a.start }
         if (lane == -1) {
             lane = laneEnds.size
-            laneEnds.add(a.endMinute)
+            laneEnds.add(a.end)
         } else {
-            laneEnds[lane] = a.endMinute
+            laneEnds[lane] = a.end
         }
-        laneOf[a.id] = lane
+        laneOf[a.activity.id] = lane
         cluster.add(a)
-        clusterEnd = maxOf(clusterEnd, a.endMinute)
+        clusterEnd = maxOf(clusterEnd, a.end)
     }
     flush()
     return result

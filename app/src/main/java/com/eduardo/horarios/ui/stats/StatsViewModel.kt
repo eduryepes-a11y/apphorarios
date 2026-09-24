@@ -9,6 +9,8 @@ import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.CompletionEntity
 import com.eduardo.horarios.data.HorariosRepository
+import com.eduardo.horarios.data.OverrideEntity
+import com.eduardo.horarios.data.Planner
 import com.eduardo.horarios.data.ScheduleEntity
 import com.eduardo.horarios.hasDay
 import com.eduardo.horarios.nowMinuteOfDay
@@ -58,26 +60,28 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
         repo.activeSchedule,
         repo.activeActivities,
         repo.completionsSince(LocalDate.now().minusDays(400).toEpochDay()),
+        repo.overridesBetween(LocalDate.now().minusDays(400).toEpochDay(), LocalDate.now().plusDays(7).toEpochDay()),
         period,
-    ) { schedule, activities, completions, periodDays ->
-        compute(schedule, activities, completions, periodDays)
+    ) { schedule, activities, completions, overrides, periodDays ->
+        compute(schedule, activities, completions, overrides, periodDays)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsState())
 
     private fun compute(
         schedule: ScheduleEntity?,
         acts: List<ActivityEntity>,
         completions: List<CompletionEntity>,
+        overrides: List<OverrideEntity>,
         periodDays: Int,
     ): StatsState {
         val today = LocalDate.now()
         val nowMin = nowMinuteOfDay()
         val doneSet = completions.map { it.activityId to it.epochDay }.toHashSet()
 
-        /** Actividades que ya tocaban ese día (hoy, solo las que ya han empezado). */
-        fun plannedOn(date: LocalDate): List<ActivityEntity> {
-            val d = date.dayOfWeek.value - 1
-            return acts.filter { it.daysMask.hasDay(d) && (date < today || it.startMinute <= nowMin) }
-        }
+        /** Actividades que ya tocaban ese día (sin las canceladas; hoy, solo las que ya han empezado). */
+        fun plannedOn(date: LocalDate): List<ActivityEntity> =
+            Planner.plan(date, acts, overrides)
+                .filter { !it.skipped && (date < today || it.start <= nowMin) }
+                .map { it.activity }
 
         // Periodo elegido (7 o 28 días hasta hoy)
         var planned = 0
@@ -102,7 +106,7 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
         val week = (0..6).map { d ->
             val date = monday.plusDays(d.toLong())
             if (date > today) {
-                DayStat(d, acts.count { it.daysMask.hasDay(d) }, 0, isToday = false, isFuture = true)
+                DayStat(d, Planner.plan(date, acts, overrides).count { !it.skipped }, 0, isToday = false, isFuture = true)
             } else {
                 val pl = plannedOn(date)
                 DayStat(

@@ -37,6 +37,21 @@ android {
         }
     }
 
+    // Dos variantes de la misma app:
+    //  - github: se instala con APK y se actualiza sola desde las Releases.
+    //  - play:   para Google Play (sin autoactualizador ni permiso de instalar paquetes).
+    flavorDimensions += "store"
+    productFlavors {
+        create("github") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+        }
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+        }
+    }
+
     buildTypes {
         release {
             if (keystoreFile != null) signingConfig = signingConfigs.getByName("release")
@@ -53,6 +68,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

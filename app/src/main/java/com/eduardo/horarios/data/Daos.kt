@@ -79,6 +79,9 @@ interface CompletionDao {
     @Query("SELECT * FROM completions WHERE epochDay >= :fromDay")
     fun observeSince(fromDay: Long): Flow<List<CompletionEntity>>
 
+    @Query("SELECT * FROM completions WHERE epochDay BETWEEN :fromDay AND :toDay")
+    fun observeRange(fromDay: Long, toDay: Long): Flow<List<CompletionEntity>>
+
     @Query("SELECT * FROM completions WHERE activityId = :activityId")
     suspend fun getForActivity(activityId: Long): List<CompletionEntity>
 
@@ -101,5 +104,38 @@ interface CompletionDao {
     suspend fun deleteForActivity(activityId: Long)
 
     @Query("DELETE FROM completions")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface OverrideDao {
+    @Query("SELECT * FROM day_overrides WHERE scheduleId = :scheduleId AND epochDay BETWEEN :fromDay AND :toDay ORDER BY id ASC")
+    fun observeRange(scheduleId: Long, fromDay: Long, toDay: Long): Flow<List<OverrideEntity>>
+
+    @Query("SELECT * FROM day_overrides WHERE scheduleId = :scheduleId AND epochDay BETWEEN :fromDay AND :toDay ORDER BY id ASC")
+    suspend fun getRange(scheduleId: Long, fromDay: Long, toDay: Long): List<OverrideEntity>
+
+    @Insert
+    suspend fun insert(override: OverrideEntity): Long
+
+    @Query("DELETE FROM day_overrides WHERE scheduleId = :scheduleId AND epochDay = :epochDay AND type = 0 AND activityId = :activityId")
+    suspend fun deleteSkip(scheduleId: Long, epochDay: Long, activityId: Long)
+
+    @Query("DELETE FROM day_overrides WHERE scheduleId = :scheduleId AND epochDay = :epochDay AND type = 0 AND activityId IS NULL")
+    suspend fun deleteDayOff(scheduleId: Long, epochDay: Long)
+
+    @Query("DELETE FROM day_overrides WHERE scheduleId = :scheduleId AND epochDay = :epochDay AND type = 1")
+    suspend fun deleteShifts(scheduleId: Long, epochDay: Long)
+
+    @Query("DELETE FROM day_overrides WHERE scheduleId = :scheduleId")
+    suspend fun deleteForSchedule(scheduleId: Long)
+
+    @Query("DELETE FROM day_overrides WHERE activityId = :activityId")
+    suspend fun deleteForActivity(activityId: Long)
+
+    @Query("DELETE FROM day_overrides WHERE epochDay < :beforeDay")
+    suspend fun deleteOlderThan(beforeDay: Long)
+
+    @Query("DELETE FROM day_overrides")
     suspend fun deleteAll()
 }

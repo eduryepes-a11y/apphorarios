@@ -6,6 +6,8 @@ import android.content.Intent
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.R
 import com.eduardo.horarios.data.localized
+import com.eduardo.horarios.data.Planner
+import java.time.LocalDate
 import com.eduardo.horarios.hasDay
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -44,10 +46,19 @@ class ReminderReceiver : BroadcastReceiver() {
                     kind !in app.scheduler.kindsFor(activity) || !activity.daysMask.hasDay(day) ->
                         AlarmLog.add(context, r.getString(R.string.log_not_due, label, activity.title))
                     else -> {
+                        val overrides = app.scheduler.loadOverrides(activity.scheduleId)
+                        val today = Planner.overridesFor(LocalDate.now().toEpochDay(), overrides)
+                        if (Planner.isSkipped(activity.id, today)) {
+                            AlarmLog.add(context, r.getString(R.string.log_skipped, label, activity.title))
+                            app.scheduler.schedule(activity, day, kind, System.currentTimeMillis() + 60_000L, overrides)
+                            return@launch
+                        }
+                        val start = Planner.shiftedStart(activity.startMinute, today)
+                        val end = activity.endMinute + (start - activity.startMinute)
                         val shown = if (kind == AlarmScheduler.KIND_START) {
-                            Notifications.showStart(context, activity)
+                            Notifications.showStart(context, activity, start, end)
                         } else {
-                            Notifications.showReminder(context, activity)
+                            Notifications.showReminder(context, activity, start, end)
                         }
                         AlarmLog.add(
                             context,
@@ -58,7 +69,7 @@ class ReminderReceiver : BroadcastReceiver() {
                             ),
                         )
                         // Reprogramar para la semana que viene
-                        app.scheduler.schedule(activity, day, kind, System.currentTimeMillis() + 60_000L)
+                        app.scheduler.schedule(activity, day, kind, System.currentTimeMillis() + 60_000L, overrides)
                     }
                 }
             } finally {

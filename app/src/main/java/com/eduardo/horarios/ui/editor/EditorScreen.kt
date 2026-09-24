@@ -30,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Schedule
@@ -96,6 +97,7 @@ import com.eduardo.horarios.ui.theme.paletteColor
 @Composable
 fun EditorScreen(
     onBack: () -> Unit,
+    onBulkAdd: () -> Unit,
     vm: EditorViewModel = viewModel(factory = EditorViewModel.Factory),
 ) {
     DefaultStatusBarIcons()
@@ -117,6 +119,11 @@ fun EditorScreen(
                     IconButton(onClick = onBack) { Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close)) }
                 },
                 actions = {
+                    if (!vm.isEditing) {
+                        IconButton(onClick = onBulkAdd) {
+                            Icon(Icons.Rounded.PostAdd, contentDescription = stringResource(R.string.bulk_add_title))
+                        }
+                    }
                     if (vm.isEditing) {
                         IconButton(onClick = { confirmDelete = true }) {
                             Icon(
@@ -356,7 +363,7 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
 }
 
 @Composable
-private fun DaysPicker(mask: Int, accent: Color, onChange: (Int) -> Unit) {
+internal fun DaysPicker(mask: Int, accent: Color, onChange: (Int) -> Unit) {
     val context = LocalContext.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
         for (d in 0..6) {
@@ -385,7 +392,7 @@ private fun DaysPicker(mask: Int, accent: Color, onChange: (Int) -> Unit) {
 }
 
 @Composable
-private fun QuickDaysChip(label: String, value: Int, current: Int, accent: Color, onSelect: (Int) -> Unit) {
+internal fun QuickDaysChip(label: String, value: Int, current: Int, accent: Color, onSelect: (Int) -> Unit) {
     FilterChip(
         selected = current == value,
         onClick = { onSelect(value) },

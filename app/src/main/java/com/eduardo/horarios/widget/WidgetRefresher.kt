@@ -60,11 +60,10 @@ object WidgetRefresher {
         }
 
         val repo = (context.applicationContext as HorariosApp).repository
-        val today = todayIndex()
         val now = nowMinuteOfDay()
-        val nextBoundary = repo.getActiveActivities()
-            .filter { it.daysMask.hasDay(today) }
-            .flatMap { listOf(it.startMinute, it.endMinute) }
+        val nextBoundary = repo.todayPlan()
+            .filter { !it.skipped }
+            .flatMap { listOf(it.start, it.end) }
             .filter { it > now }
             .minOrNull()
 

@@ -61,7 +61,7 @@ import com.eduardo.horarios.ui.theme.paletteColor
 
 @Composable
 fun StatsScreen(
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     vm: StatsViewModel = viewModel(factory = StatsViewModel.Factory),
 ) {
     DefaultStatusBarIcons()
@@ -74,8 +74,10 @@ fun StatsScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.stats)) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                    if (onBack != null) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
