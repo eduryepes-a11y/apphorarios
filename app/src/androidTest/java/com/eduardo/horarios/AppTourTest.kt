@@ -10,6 +10,7 @@ import com.eduardo.horarios.T.card
 import com.eduardo.horarios.T.p
 import com.eduardo.horarios.T.s
 import com.eduardo.horarios.T.tab
+import com.eduardo.horarios.data.ThemeMode
 import com.eduardo.horarios.ui.home.DaySelection
 import org.junit.Rule
 import org.junit.Test
@@ -18,7 +19,7 @@ import java.time.DayOfWeek
 import java.time.LocalDate
 
 /**
- * Recorre la app como un usuario nuevo (en español y tema claro):
+ * Recorre la app como un usuario nuevo, en español (tema claro) y en inglés (tema oscuro):
  * bienvenida → plantilla → Hoy → opciones de una actividad → día libre → pegar lista → pestañas.
  * Guarda una captura de cada pantalla.
  */
@@ -28,13 +29,34 @@ class AppTourTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
-    private fun shot(name: String) = T.shot(compose, name)
+    private var prefix = ""
 
+    private fun shot(name: String) = T.shot(compose, "${prefix}_$name")
+
+    /** Español con tema claro. */
     @Test
-    fun recorridoCompleto() {
+    fun recorridoEspanolClaro() = recorrido(
+        language = "es",
+        dark = false,
+        list = "10:00-11:00 Piano\n- Ir al súper\nLlamar a mamá 18:30",
+        lastItem = "Llamar a mamá",
+    )
+
+    /** Inglés con tema oscuro. */
+    @Test
+    fun recorridoInglesOscuro() = recorrido(
+        language = "en",
+        dark = true,
+        list = "10:00-11:00 Piano\n- Groceries\nCall mum 18:30",
+        lastItem = "Call mum",
+    )
+
+    private fun recorrido(language: String, dark: Boolean, list: String, lastItem: String) {
+        prefix = if (dark) "${language}_oscuro" else "${language}_claro"
+        if (dark) T.onMain { T.app.settings.setThemeMode(ThemeMode.DARK) }
         val monday = LocalDate.now().with(DayOfWeek.MONDAY)
 
-        T.launch(compose, "recorrido", language = "es") {
+        T.launch(compose, prefix, language = language) {
             // ---------- Bienvenida ----------
             compose.waitFor(hasText(s(R.string.ob_welcome_title)))
             shot("01_bienvenida")
@@ -83,13 +105,13 @@ class AppTourTest {
             shot("08_dia_vacio")
             compose.clickFirst(hasText(s(R.string.bulk_add_link)))
             compose.waitFor(hasSetTextAction())
-            compose.onNode(hasSetTextAction()).performTextInput("10:00-11:00 Piano\n- Ir al súper\nLlamar a mamá 18:30")
+            compose.onNode(hasSetTextAction()).performTextInput(list)
             val addButton = hasText(p(R.plurals.bulk_add_button, 3))
             compose.waitFor(addButton)
             shot("09_pegar_lista")
             compose.clickFirst(addButton)
             compose.waitFor(card("Piano"))
-            compose.waitFor(card("Llamar a mamá"))
+            compose.waitFor(card(lastItem))
             shot("10_domingo_con_lista")
 
             // ---------- Pestañas ----------
