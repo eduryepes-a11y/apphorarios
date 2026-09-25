@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
 
+private const val KEY_TRACKING_DEFAULTS = "tracking_defaults_v13"
+
 class HorariosRepository(
     private val context: Context,
     private val db: AppDatabase,
@@ -194,6 +196,21 @@ class HorariosRepository(
         scheduler.fireIfStartingNow(activity.copy(id = id))
     }
 
+    /**
+     * Una sola vez al actualizar a la v1.3: las actividades fijas que ya existían (comer, dormir,
+     * clase…) dejan de contar en Progreso. Las demás siguen igual.
+     */
+    suspend fun applyTrackingDefaultsOnce() {
+        val prefs = context.getSharedPreferences(SettingsStore.PREFS, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_TRACKING_DEFAULTS, false)) return
+        db.withTransaction {
+            for (a in activityDao.getAll()) {
+                if (a.tracked && !Tracking.defaultTracked(a.title)) activityDao.setTracked(a.id, false)
+            }
+        }
+        prefs.edit().putBoolean(KEY_TRACKING_DEFAULTS, true).apply()
+    }
+
     suspend fun deleteActivity(activity: ActivityEntity) {
         completionDao.deleteForActivity(activity.id)
         overrideDao.deleteForActivity(activity.id)
@@ -236,6 +253,8 @@ class HorariosRepository(
                     endMinute = a.endMinute,
                     colorIndex = a.colorIndex,
                     reminderMinutes = a.reminderMinutes,
+                    onDate = a.onDate,
+                    tracked = a.tracked,
                     doneDays = if (withDone) completionDao.getForActivity(a.id).map { it.epochDay } else emptyList(),
                 )
             },
@@ -273,6 +292,8 @@ class HorariosRepository(
                             endMinute = a.endMinute,
                             colorIndex = a.colorIndex,
                             reminderMinutes = a.reminderMinutes,
+                            onDate = a.onDate,
+                            tracked = a.tracked,
                         )
                     )
                     if (a.doneDays.isNotEmpty()) {

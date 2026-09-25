@@ -75,6 +75,9 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
     ): StatsState {
         val today = LocalDate.now()
         val nowMin = nowMinuteOfDay()
+        // Solo cuentan las actividades que el usuario sigue (las fijas, como comer, no)
+        @Suppress("NAME_SHADOWING")
+        val acts = acts.filter { it.tracked }
         val doneSet = completions.map { it.activityId to it.epochDay }.toHashSet()
 
         /** Actividades que ya tocaban ese día (sin las canceladas; hoy, solo las que ya han empezado). */
@@ -142,9 +145,10 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
                     activity = group.first(),
                     planned = group.sumOf { perPlanned[it.id] ?: 0 },
                     done = group.sumOf { perDone[it.id] ?: 0 },
-                    weeklyMinutes = group.sumOf { (it.endMinute - it.startMinute) * Integer.bitCount(it.daysMask) },
+                    weeklyMinutes = group.filter { it.onDate == null }.sumOf { (it.endMinute - it.startMinute) * Integer.bitCount(it.daysMask) },
                 )
             }
+            .filter { it.weeklyMinutes > 0 || it.planned > 0 } // las de un solo día, solo si caen en el periodo
             .sortedByDescending { it.weeklyMinutes }
 
         return StatsState(

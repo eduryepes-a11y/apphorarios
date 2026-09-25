@@ -78,6 +78,25 @@ class PlannerTest {
     }
 
     @Test
+    fun oneOffOnlyOnItsDate() {
+        val wednesday = monday.plusDays(2)
+        val dentist = activity(id = 9, start = 17 * 60, end = 18 * 60).copy(onDate = wednesday.toEpochDay(), daysMask = 0b0000100)
+        assertTrue(dentist.isOneOff)
+        assertEquals(listOf(2), dentist.weekDays())
+        assertTrue(dentist.occursOn(wednesday))
+        assertFalse(dentist.occursOn(wednesday.plusDays(7)))
+        assertFalse(dentist.occursOn(monday))
+        assertEquals(listOf(9L), Planner.plan(wednesday, listOf(dentist), emptyList()).map { it.activity.id })
+        assertTrue(Planner.plan(wednesday.plusDays(7), listOf(dentist), emptyList()).isEmpty())
+    }
+
+    @Test
+    fun weeklyActivityWeekDays() {
+        assertEquals(listOf(0, 1, 2, 3, 4), first.weekDays())
+        assertFalse(first.isOneOff)
+    }
+
+    @Test
     fun delayNearMidnightStaysInsideTheDay() {
         val late = activity(id = 3, start = 23 * 60 + 30, end = 23 * 60 + 59)
         val plan = Planner.plan(monday, listOf(late), listOf(shift(monday, from = 0, minutes = 60, id = 1)))

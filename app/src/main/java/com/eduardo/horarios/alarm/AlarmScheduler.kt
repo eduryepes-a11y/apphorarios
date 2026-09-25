@@ -13,7 +13,8 @@ import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.data.OverrideEntity
 import com.eduardo.horarios.data.Planner
 import java.time.LocalDate
-import com.eduardo.horarios.hasDay
+import com.eduardo.horarios.data.occursOn
+import com.eduardo.horarios.data.weekDays
 import com.eduardo.horarios.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -70,8 +71,7 @@ class AlarmScheduler(
         if (KIND_START !in kindsFor(activity)) return@withContext
         val now = System.currentTimeMillis()
         val today = Instant.ofEpochMilli(now).atZone(ZoneId.systemDefault())
-        val day = today.dayOfWeek.value - 1
-        if (!activity.daysMask.hasDay(day)) return@withContext
+        if (!activity.occursOn(today.toLocalDate())) return@withContext
         val startMillis = today.toLocalDate().atStartOfDay(ZoneId.systemDefault())
             .plusMinutes(activity.startMinute.toLong()).toInstant().toEpochMilli()
         if (now - startMillis in 0..90_000) {
@@ -103,9 +103,9 @@ class AlarmScheduler(
                     val overrides = loadOverrides(active.id)
                     for (activity in db.activityDao().getForSchedule(active.id)) {
                         for (kind in kindsFor(activity)) {
-                            for (day in 0..6) {
-                                if (activity.daysMask.hasDay(day)) {
-                                    codes += schedule(activity, day, kind, overrides = overrides).toString()
+                            for (day in activity.weekDays()) {
+                                if (schedule(activity, day, kind, overrides = overrides) != NO_ALARM) {
+                                    codes += requestCode(activity.id, day, kind).toString()
                                 }
                             }
                         }
@@ -138,6 +138,7 @@ class AlarmScheduler(
     ): Int {
         val code = requestCode(activity.id, day, kind)
         val trigger = triggerFor(activity, day, kind, after, overrides)
+        if (trigger == NO_ALARM.toLong()) return NO_ALARM // actividad de un solo día ya pasada
         val pi = PendingIntent.getBroadcast(
             context,
             code,
@@ -177,11 +178,12 @@ class AlarmScheduler(
         db.activityDao().getForSchedule(active.id)
             .flatMap { a ->
                 kindsFor(a).flatMap { kind ->
-                    (0..6).filter { a.daysMask.hasDay(it) }.map { day ->
+                    a.weekDays().map { day ->
                         NextReminder(a, triggerFor(a, day, kind, now, overrides), kind)
                     }
                 }
             }
+            .filter { it.triggerAt > 0 }
             .minByOrNull { it.triggerAt }
     }
 
@@ -228,6 +230,8 @@ class AlarmScheduler(
         /** Aviso justo al empezar. */
         const val KIND_START = 1
         private const val TEST_CODE = 2_000_000_000
+        /** No hay próximo aviso (actividad de un solo día que ya pasó o se saltó). */
+        const val NO_ALARM = -1
         const val ACTION_REMINDER = "com.eduardo.horarios.REMINDER"
         const val ACTION_TEST = "com.eduardo.horarios.TEST"
 
@@ -235,6 +239,16 @@ class AlarmScheduler(
 
         /** Próximo aviso de ([activity], [day], [kind]) después de [after], teniendo en cuenta los cambios puntuales. */
         fun triggerFor(activity: ActivityEntity, day: Int, kind: Int, after: Long, overrides: List<OverrideEntity>): Long {
+            activity.onDate?.let { epochDay ->
+                // Un solo día: ese aviso y ninguno más
+                val zone = ZoneId.systemDefault()
+                val o = Planner.overridesFor(epochDay, overrides)
+                if (Planner.isSkipped(activity.id, o)) return NO_ALARM.toLong()
+                val start = Planner.shiftedStart(activity.startMinute, o)
+                val minute = if (kind == KIND_START) start else start - activity.reminderMinutes
+                val millis = LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
+                return if (millis > after) millis else NO_ALARM.toLong()
+            }
             if (overrides.isEmpty()) return nextTrigger(day, triggerMinute(activity, kind), after)
             val zone = ZoneId.systemDefault()
             val base = Instant.ofEpochMilli(after).atZone(zone).toLocalDate()

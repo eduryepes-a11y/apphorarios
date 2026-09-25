@@ -16,16 +16,20 @@ data class TemplateActivity(
     val colorIndex: Int,
     val reminder: Int = 10,
 ) {
-    fun toEntity(r: Context, scheduleId: Long) = ActivityEntity(
+    fun toEntity(r: Context, scheduleId: Long): ActivityEntity {
+        val title = r.getString(titleRes)
+        return ActivityEntity(
         scheduleId = scheduleId,
-        title = r.getString(titleRes),
+        title = title,
         emoji = emoji,
         daysMask = daysMask,
         startMinute = start,
         endMinute = end,
         colorIndex = colorIndex,
         reminderMinutes = reminder,
+        tracked = Tracking.defaultTracked(title),
     )
+    }
 }
 
 data class ScheduleTemplate(

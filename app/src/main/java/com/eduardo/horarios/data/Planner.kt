@@ -3,6 +3,17 @@ package com.eduardo.horarios.data
 import com.eduardo.horarios.hasDay
 import java.time.LocalDate
 
+/** Actividad de un solo día (no se repite cada semana). */
+val ActivityEntity.isOneOff: Boolean get() = onDate != null
+
+/** ¿Toca esta actividad en [date]? */
+fun ActivityEntity.occursOn(date: LocalDate): Boolean =
+    onDate?.let { it == date.toEpochDay() } ?: daysMask.hasDay(date.dayOfWeek.value - 1)
+
+/** Días de la semana (0 = lunes) en los que puede tocar: el de su fecha si es de un solo día. */
+fun ActivityEntity.weekDays(): List<Int> =
+    onDate?.let { listOf(LocalDate.ofEpochDay(it).dayOfWeek.value - 1) } ?: (0..6).filter { daysMask.hasDay(it) }
+
 /** Una actividad tal y como queda un día concreto, con excepciones y retrasos aplicados. */
 data class PlannedActivity(
     val activity: ActivityEntity,
@@ -48,10 +59,9 @@ object Planner {
 
     /** Actividades de [date], ordenadas por hora, con excepciones y retrasos aplicados. */
     fun plan(date: LocalDate, activities: List<ActivityEntity>, overrides: List<OverrideEntity>): List<PlannedActivity> {
-        val dayIndex = date.dayOfWeek.value - 1
         val o = overridesFor(date.toEpochDay(), overrides)
         return activities
-            .filter { it.daysMask.hasDay(dayIndex) }
+            .filter { it.occursOn(date) }
             .map { a ->
                 val start = shiftedStart(a.startMinute, o).coerceAtMost(24 * 60 - 1)
                 val shift = start - a.startMinute

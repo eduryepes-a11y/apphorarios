@@ -62,6 +62,7 @@ object ListParser {
                 endMinute = end,
                 colorIndex = i % 10,
                 reminderMinutes = 10,
+                tracked = Tracking.defaultTracked(item.title),
             )
         }
     }

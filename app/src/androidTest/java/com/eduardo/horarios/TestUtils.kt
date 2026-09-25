@@ -26,6 +26,9 @@ object T {
 
     private val ctx: Context get() = app.localized()
 
+    /** Contexto con el idioma elegido en la app (para formatear fechas como la app). */
+    fun localizedContext(): Context = ctx
+
     fun s(@StringRes id: Int, vararg args: Any): String = ctx.getString(id, *args)
 
     fun p(@PluralsRes id: Int, n: Int): String = ctx.resources.getQuantityString(id, n, n)
@@ -78,6 +81,11 @@ object T {
      * El idioma se aplica con la app ya abierta: AppCompat solo puede cambiarlo si hay una pantalla activa.
      */
     fun launch(compose: ComposeTestRule, name: String, language: String, block: () -> Unit) {
+        // Que los cuelgues del escritorio del emulador («Pixel Launcher no responde») no tapen las capturas
+        runCatching {
+            InstrumentationRegistry.getInstrumentation().uiAutomation
+                .executeShellCommand("settings put global hide_error_dialogs 1").close()
+        }
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             try {
                 onMain { app.settings.setLanguage(language) }

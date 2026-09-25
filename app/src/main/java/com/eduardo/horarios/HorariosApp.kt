@@ -36,6 +36,7 @@ class HorariosApp : Application() {
             settings.setOnboarded()
         }
         appScope.launch {
+            repository.applyTrackingDefaultsOnce()
             repository.cleanOldOverrides()
             scheduler.rescheduleAll()
         }

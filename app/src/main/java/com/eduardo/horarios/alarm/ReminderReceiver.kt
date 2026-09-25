@@ -8,7 +8,7 @@ import com.eduardo.horarios.R
 import com.eduardo.horarios.data.localized
 import com.eduardo.horarios.data.Planner
 import java.time.LocalDate
-import com.eduardo.horarios.hasDay
+import com.eduardo.horarios.data.weekDays
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -43,7 +43,7 @@ class ReminderReceiver : BroadcastReceiver() {
                         AlarmLog.add(context, r.getString(R.string.log_missing, label))
                     active?.id != activity.scheduleId ->
                         AlarmLog.add(context, r.getString(R.string.log_inactive, label, activity.title))
-                    kind !in app.scheduler.kindsFor(activity) || !activity.daysMask.hasDay(day) ->
+                    kind !in app.scheduler.kindsFor(activity) || day !in activity.weekDays() ->
                         AlarmLog.add(context, r.getString(R.string.log_not_due, label, activity.title))
                     else -> {
                         val overrides = app.scheduler.loadOverrides(activity.scheduleId)

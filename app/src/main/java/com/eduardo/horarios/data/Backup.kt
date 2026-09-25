@@ -14,6 +14,8 @@ data class ActivityExport(
     val colorIndex: Int,
     val reminderMinutes: Int,
     val doneDays: List<Long> = emptyList(),
+    val onDate: Long? = null,
+    val tracked: Boolean = true,
 )
 
 data class ScheduleExport(
@@ -65,6 +67,8 @@ object BackupFormat {
                     .put("endMinute", a.endMinute)
                     .put("colorIndex", a.colorIndex)
                     .put("reminderMinutes", a.reminderMinutes)
+                    .put("tracked", a.tracked)
+                a.onDate?.let { o.put("onDate", it) }
                 if (a.doneDays.isNotEmpty()) o.put("doneDays", JSONArray(a.doneDays))
                 acts.put(o)
             }
@@ -117,6 +121,8 @@ object BackupFormat {
                     colorIndex = a.optInt("colorIndex", 0).coerceIn(0, 9),
                     reminderMinutes = a.optInt("reminderMinutes", 10).coerceIn(-1, 24 * 60),
                     doneDays = done,
+                    onDate = if (a.has("onDate")) a.optLong("onDate") else null,
+                    tracked = a.optBoolean("tracked", Tracking.defaultTracked(title)),
                 )
             }
             schedules += ScheduleExport(

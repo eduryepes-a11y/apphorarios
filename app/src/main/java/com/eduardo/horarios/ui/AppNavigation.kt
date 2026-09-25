@@ -39,6 +39,7 @@ import com.eduardo.horarios.R
 import com.eduardo.horarios.ui.backup.ImportHandler
 import com.eduardo.horarios.ui.editor.BulkAddScreen
 import com.eduardo.horarios.ui.editor.EditorScreen
+import com.eduardo.horarios.ui.home.DaySelection
 import com.eduardo.horarios.ui.home.TodayScreen
 import com.eduardo.horarios.ui.home.WeekScreen
 import com.eduardo.horarios.ui.onboarding.OnboardingScreen
@@ -127,7 +128,7 @@ fun AppNavigation(showOnboarding: Boolean) {
             ) {
                 TodayScreen(
                     onOpenSchedules = { nav.goToTab(Tab.SCHEDULES.route) },
-                    onAddActivity = { day -> nav.navigate("editor?day=$day") },
+                    onAddActivity = { day -> nav.navigate("editor?day=$day&date=${DaySelection.date.value.toEpochDay()}") },
                     onEditActivity = { id -> nav.navigate("editor?activityId=$id") },
                     onBulkAdd = { day -> nav.navigate("bulk?day=$day") },
                 )
@@ -139,7 +140,7 @@ fun AppNavigation(showOnboarding: Boolean) {
             ) {
                 WeekScreen(
                     onOpenDay = { nav.goToTab(Tab.TODAY.route) },
-                    onAddActivity = { day -> nav.navigate("editor?day=$day") },
+                    onAddActivity = { day -> nav.navigate("editor?day=$day&date=${DaySelection.date.value.toEpochDay()}") },
                     onEditActivity = { id -> nav.navigate("editor?activityId=$id") },
                 )
             }
@@ -173,17 +174,18 @@ fun AppNavigation(showOnboarding: Boolean) {
                 NotificationsScreen(onBack = { nav.popBackStack() })
             }
             composable(
-                route = "editor?activityId={activityId}&day={day}",
+                route = "editor?activityId={activityId}&day={day}&date={date}",
                 arguments = listOf(
                     navArgument("activityId") { type = NavType.LongType; defaultValue = -1L },
                     navArgument("day") { type = NavType.IntType; defaultValue = -1 },
+                    navArgument("date") { type = NavType.LongType; defaultValue = -1L },
                 ),
             ) { entry ->
                 val day = entry.arguments?.getInt("day") ?: -1
                 EditorScreen(
                     onBack = { nav.popBackStack() },
                     onBulkAdd = {
-                        nav.navigate("bulk?day=$day") { popUpTo("editor?activityId={activityId}&day={day}") { inclusive = true } }
+                        nav.navigate("bulk?day=$day") { popUpTo("editor?activityId={activityId}&day={day}&date={date}") { inclusive = true } }
                     },
                 )
             }

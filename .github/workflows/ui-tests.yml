@@ -48,7 +48,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace; s=$?; adb logcat -d > app/build/logcat.txt 2>/dev/null; exit $s
+          script: adb shell settings put global hide_error_dialogs 1; ./gradlew connectedGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace; s=$?; adb logcat -d > app/build/logcat.txt 2>/dev/null; exit $s
 
       - name: Resumen de fallos
         if: failure()

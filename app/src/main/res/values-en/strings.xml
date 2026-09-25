@@ -238,7 +238,7 @@
     <string name="stats_hint">Mark activities as done with the ✓ (in the day list or from the notification) and your progress will show up here.</string>
     <string name="stats_this_week">This week</string>
     <string name="stats_by_activity">By activity</string>
-    <string name="stats_no_activities">This schedule has no activities yet.</string>
+    <string name="stats_no_activities">No activity is tracked in Progress. Turn on “Track in Progress” in each activity.</string>
     <string name="stats_per_week">%1$s per week</string>
     <string name="tab_today">Today</string>
     <string name="tab_week">Week</string>
@@ -313,6 +313,15 @@
     <string name="ob_not_now">Not now</string>
     <string name="ob_template_title">What does your week look like?</string>
     <string name="ob_template_text">Pick a template to start. You can change everything later.</string>
+    <string name="repeat">Repeat</string>
+    <string name="repeat_weekly">Every week</string>
+    <string name="repeat_once">Just one day</string>
+    <string name="date">Date</string>
+    <string name="track_title">Track in Progress</string>
+    <string name="track_on_text">You can tick it off and see your consistency in Progress.</string>
+    <string name="track_off_text">Fixed activity (meals, sleep, class…): not counted in Progress.</string>
+    <string name="settings_advanced">Advanced</string>
+    <string name="diag_entry_title">Reminder diagnostics</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>

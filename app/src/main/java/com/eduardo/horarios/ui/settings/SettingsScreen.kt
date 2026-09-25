@@ -66,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.BuildConfig
+import androidx.compose.ui.platform.testTag
+import androidx.compose.material.icons.rounded.Build
 import com.eduardo.horarios.R
 import com.eduardo.horarios.alarm.Notifications
 import com.eduardo.horarios.data.SettingsStore
@@ -93,6 +95,8 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
     val accent by app.settings.accent.collectAsStateWithLifecycle()
     var language by remember { mutableStateOf(app.settings.language) }
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
+    var alarmMode by remember { mutableStateOf(app.scheduler.alarmClockMode) }
+    var startAlerts by remember { mutableStateOf(app.scheduler.startAlerts) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -265,29 +269,28 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                 }
             }
 
-            // ---------- Avisos ----------
+            // ---------- Avisos (lo que usa todo el mundo) ----------
             SectionLabel(stringResource(R.string.notifications_title), Modifier.padding(top = 8.dp))
-            Surface(
-                onClick = onOpenNotifications,
-                color = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.NotificationsActive, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.notifications_title), style = MaterialTheme.typography.titleSmall)
-                        Text(
-                            stringResource(R.string.settings_notifications_sub),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
-                }
-            }
+            ToggleCard(
+                title = stringResource(R.string.diag_start_alerts),
+                text = stringResource(R.string.diag_start_alerts_text),
+                checked = startAlerts,
+                onChange = {
+                    app.scheduler.startAlerts = it
+                    startAlerts = it
+                    scope.launch { app.scheduler.rescheduleAll() }
+                },
+            )
+            ToggleCard(
+                title = stringResource(R.string.diag_alarm_mode),
+                text = stringResource(R.string.diag_alarm_mode_text),
+                checked = alarmMode,
+                onChange = {
+                    app.scheduler.alarmClockMode = it
+                    alarmMode = it
+                    scope.launch { app.scheduler.rescheduleAll() }
+                },
+            )
 
             // ---------- Acerca de ----------
             SectionLabel(stringResource(R.string.settings_about), Modifier.padding(top = 8.dp))
@@ -317,6 +320,30 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                     }) { Text(stringResource(R.string.update_check)) }
                 }
             }
+            // ---------- Avanzado: diagnóstico técnico ----------
+            SectionLabel(stringResource(R.string.settings_advanced), Modifier.padding(top = 8.dp))
+            Surface(
+                onClick = onOpenNotifications,
+                color = MaterialTheme.colorScheme.surface,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                modifier = Modifier.fillMaxWidth().testTag("open_diagnostics"),
+            ) {
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Build, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.diag_entry_title), style = MaterialTheme.typography.titleSmall)
+                        Text(
+                            stringResource(R.string.settings_notifications_sub),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+                }
+            }
+
             Spacer(Modifier.height(24.dp))
         }
     }

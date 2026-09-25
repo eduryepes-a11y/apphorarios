@@ -14,6 +14,8 @@ import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.R
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.HorariosRepository
+import com.eduardo.horarios.data.Tracking
+import java.time.LocalDate
 import com.eduardo.horarios.todayIndex
 import kotlinx.coroutines.launch
 
@@ -26,6 +28,12 @@ data class EditorForm(
     val endMinute: Int = 10 * 60,
     val colorIndex: Int = 0,
     val reminderMinutes: Int = 10,
+    /** true = un solo día ([date]); false = cada semana ([daysMask]). */
+    val oneOff: Boolean = false,
+    val date: LocalDate = LocalDate.now(),
+    val tracked: Boolean = true,
+    /** El usuario ha tocado el interruptor: ya no lo cambiamos al escribir el nombre. */
+    val trackedTouched: Boolean = false,
 )
 
 class EditorViewModel(
@@ -34,12 +42,19 @@ class EditorViewModel(
 ) : ViewModel() {
 
     private val activityId: Long = handle.get<Long>("activityId") ?: -1L
-    private val initialDay: Int = (handle.get<Int>("day") ?: -1).let { if (it in 0..6) it else todayIndex() }
+    private val initialDate: LocalDate? = (handle.get<Long>("date") ?: -1L).takeIf { it >= 0 }?.let { LocalDate.ofEpochDay(it) }
+    private val initialDay: Int = (handle.get<Int>("day") ?: -1).let {
+        when {
+            it in 0..6 -> it
+            initialDate != null -> initialDate.dayOfWeek.value - 1
+            else -> todayIndex()
+        }
+    }
     private var original: ActivityEntity? = null
 
     val isEditing: Boolean = activityId > 0
 
-    var form by mutableStateOf(EditorForm(daysMask = 1 shl initialDay))
+    var form by mutableStateOf(EditorForm(daysMask = 1 shl initialDay, date = initialDate ?: LocalDate.now()))
         private set
     var error by mutableStateOf<Int?>(null)
         private set
@@ -58,11 +73,23 @@ class EditorViewModel(
                         endMinute = a.endMinute,
                         colorIndex = a.colorIndex,
                         reminderMinutes = a.reminderMinutes,
+                        oneOff = a.onDate != null,
+                        date = a.onDate?.let { LocalDate.ofEpochDay(it) } ?: form.date,
+                        tracked = a.tracked,
+                        trackedTouched = true,
                     )
                 }
             }
         }
     }
+
+    /** Al escribir el nombre propone si cuenta en Progreso (comer o dormir no; gimnasio sí). */
+    fun setTitle(value: String) = update {
+        val t = value.take(50)
+        copy(title = t, tracked = if (trackedTouched) tracked else Tracking.defaultTracked(t))
+    }
+
+    fun setTracked(value: Boolean) = update { copy(tracked = value, trackedTouched = true) }
 
     fun update(transform: EditorForm.() -> EditorForm) {
         form = form.transform()
@@ -82,7 +109,7 @@ class EditorViewModel(
         val f = form
         error = when {
             f.title.isBlank() -> R.string.error_no_title
-            f.daysMask == 0 -> R.string.error_no_days
+            !f.oneOff && f.daysMask == 0 -> R.string.error_no_days
             f.endMinute <= f.startMinute -> R.string.error_end_before_start
             else -> null
         }
@@ -101,11 +128,13 @@ class EditorViewModel(
                     title = f.title.trim(),
                     emoji = f.emoji,
                     notes = f.notes.trim(),
-                    daysMask = f.daysMask,
+                    daysMask = if (f.oneOff) 1 shl (f.date.dayOfWeek.value - 1) else f.daysMask,
                     startMinute = f.startMinute,
                     endMinute = f.endMinute,
                     colorIndex = f.colorIndex,
                     reminderMinutes = f.reminderMinutes,
+                    onDate = if (f.oneOff) f.date.toEpochDay() else null,
+                    tracked = f.tracked,
                 )
             )
             onDone()

@@ -238,7 +238,7 @@
     <string name="stats_hint">Marca las actividades como hechas con el ✓ (en la lista del día o desde la notificación) y aquí verás tu progreso.</string>
     <string name="stats_this_week">Esta semana</string>
     <string name="stats_by_activity">Por actividad</string>
-    <string name="stats_no_activities">Este horario aún no tiene actividades.</string>
+    <string name="stats_no_activities">Ninguna actividad cuenta en Progreso. Actívalo en cada actividad con «Seguir en Progreso».</string>
     <string name="stats_per_week">%1$s por semana</string>
     <string name="tab_today">Hoy</string>
     <string name="tab_week">Semana</string>
@@ -313,6 +313,15 @@
     <string name="ob_not_now">Ahora no</string>
     <string name="ob_template_title">¿Cómo es tu semana?</string>
     <string name="ob_template_text">Elige una plantilla para empezar. Podrás cambiarlo todo después.</string>
+    <string name="repeat">Repetición</string>
+    <string name="repeat_weekly">Cada semana</string>
+    <string name="repeat_once">Un solo día</string>
+    <string name="date">Fecha</string>
+    <string name="track_title">Seguir en Progreso</string>
+    <string name="track_on_text">Podrás marcarla como hecha y ver tu constancia en Progreso.</string>
+    <string name="track_off_text">Actividad fija (comer, dormir, clase…): no cuenta en Progreso.</string>
+    <string name="settings_advanced">Avanzado</string>
+    <string name="diag_entry_title">Diagnóstico de avisos</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>

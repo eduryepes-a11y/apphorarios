@@ -79,6 +79,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
@@ -221,7 +223,7 @@ fun TodayScreen(
                     nowMinute = nowMinute,
                     isLast = p == dayPlan.last(),
                     done = state.isDone(p),
-                    canMarkDone = !date.isAfter(today) && !p.skipped,
+                    canMarkDone = p.activity.tracked && !date.isAfter(today) && !p.skipped,
                     onToggleDone = { vm.setDone(p, !state.isDone(p)) },
                     onClick = { sheetFor = p },
                     modifier = Modifier.animateItem(),
@@ -235,7 +237,7 @@ fun TodayScreen(
         ActivitySheet(
             planned = p,
             done = done,
-            canMarkDone = !p.date.isAfter(today),
+            canMarkDone = p.activity.tracked && !p.date.isAfter(today),
             onToggleDone = {
                 vm.setDone(p, !done)
                 sheetFor = null
@@ -308,7 +310,7 @@ private fun Header(
                 )
             }
             .statusBarsPadding()
-            .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 20.dp),
+            .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 14.dp),
     ) {
         Column {
             Text(dateText, style = MaterialTheme.typography.labelLarge, color = Color.White.copy(alpha = 0.8f))
@@ -322,7 +324,7 @@ private fun Header(
             ) {
                 Text(
                     text = schedule?.let { "${it.emoji}  ${it.name}" } ?: stringResource(R.string.no_schedule),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.titleLarge,
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -330,7 +332,7 @@ private fun Header(
                 )
                 Icon(Icons.Rounded.KeyboardArrowDown, contentDescription = stringResource(R.string.change_schedule), tint = Color.White)
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(10.dp))
             NowNextCard(schedule, todayPlan, nowMinute, todayDelay, onDelay)
         }
     }
@@ -350,10 +352,10 @@ private fun NowNextCard(
 
     Surface(
         color = Color.White.copy(alpha = 0.16f),
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(20.dp),
         modifier = Modifier.fillMaxWidth(),
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             when {
                 schedule == null -> GlassRow(
                     emoji = "🗓️",
@@ -375,7 +377,7 @@ private fun NowNextCard(
                             durationLabel(context, total - done),
                         ),
                     )
-                    Spacer(Modifier.height(14.dp))
+                    Spacer(Modifier.height(10.dp))
                     LinearProgressIndicator(
                         progress = { done.toFloat() / total },
                         color = Color.White,
@@ -383,20 +385,8 @@ private fun NowNextCard(
                         strokeCap = StrokeCap.Round,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(6.dp),
+                            .height(4.dp),
                     )
-                    if (next != null) {
-                        Spacer(Modifier.height(12.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-                        Spacer(Modifier.height(10.dp))
-                        Text(
-                            stringResource(R.string.after_next, "${next.activity.emoji} ${next.activity.title}", hm(next.start)),
-                            color = Color.White.copy(alpha = 0.85f),
-                            style = MaterialTheme.typography.bodyMedium,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
                 }
 
                 next != null -> GlassRow(
@@ -425,9 +415,23 @@ private fun NowNextCard(
                 )
             }
 
-            // «Voy con retraso»: solo si aún queda algo por empezar hoy
+            // Una sola línea: «Después: …» y el botón «Voy con retraso» (solo si aún queda algo hoy)
             if (next != null) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(10.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (current != null) {
+                        Text(
+                            stringResource(R.string.after_next, "${next.activity.emoji} ${next.activity.title}", hm(next.start)),
+                            color = Color.White.copy(alpha = 0.85f),
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(8.dp))
+                    } else {
+                        Spacer(Modifier.weight(1f))
+                    }
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(50))
@@ -448,6 +452,7 @@ private fun NowNextCard(
                         color = Color.White,
                     )
                 }
+                }
             }
         }
     }
@@ -456,13 +461,13 @@ private fun NowNextCard(
 @Composable
 private fun GlassRow(emoji: String, label: String, title: String, subtitle: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        EmojiBubble(emoji = emoji, color = Color.White, size = 52.dp, corner = 18.dp, alpha = 0.22f)
-        Spacer(Modifier.width(14.dp))
+        EmojiBubble(emoji = emoji, color = Color.White, size = 42.dp, corner = 14.dp, alpha = 0.22f)
+        Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = Color.White.copy(alpha = 0.75f))
             Text(
                 title,
-                style = MaterialTheme.typography.titleLarge,
+                style = MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -555,10 +560,10 @@ private fun Banner(
         shape = RoundedCornerShape(20.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 16.dp),
+            .padding(top = 12.dp),
     ) {
         Row(
-            Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 8.dp),
+            Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.onTertiaryContainer)
@@ -622,12 +627,12 @@ fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifi
 private fun WeekDaySelector(state: PlanState, onSelect: (LocalDate) -> Unit) {
     val context = LocalContext.current
     val today = LocalDate.now()
-    Column(Modifier.padding(start = 8.dp, end = 8.dp, top = 8.dp)) {
+    Column(Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp)) {
         WeekNavigator(state.weekStart, state.isCurrentWeek)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             for (d in 0..6) {
@@ -649,7 +654,7 @@ private fun WeekDaySelector(state: PlanState, onSelect: (LocalDate) -> Unit) {
                     border = if (isToday && !isSel) BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
                     modifier = Modifier
                         .weight(1f)
-                        .height(66.dp),
+                        .height(58.dp),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                         Text(dayShort(context, d), style = MaterialTheme.typography.labelMedium, color = fg.copy(alpha = 0.8f))
@@ -931,23 +936,28 @@ private fun ActivityCard(
 
 @Composable
 private fun DoneButton(done: Boolean, color: Color, onClick: () -> Unit) {
+    val markLabel = stringResource(if (done) R.string.mark_not_done else R.string.mark_done)
     val bg by animateColorAsState(if (done) color else Color.Transparent, label = "doneBg")
+    // Zona táctil de 44 dp (más cómoda) con el círculo de 32 dp dentro
     Box(
         modifier = Modifier
-            .size(32.dp)
+            .size(44.dp)
             .clip(CircleShape)
-            .background(bg)
-            .border(2.dp, if (done) color else color.copy(alpha = 0.55f), CircleShape)
-            .clickable(onClick = onClick),
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = markLabel },
         contentAlignment = Alignment.Center,
     ) {
-        if (done) {
-            Icon(
-                Icons.Rounded.Check,
-                contentDescription = stringResource(R.string.mark_not_done),
-                tint = Color.White,
-                modifier = Modifier.size(18.dp),
-            )
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(bg)
+                .border(2.dp, if (done) color else color.copy(alpha = 0.55f), CircleShape),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (done) {
+                Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
         }
     }
 }

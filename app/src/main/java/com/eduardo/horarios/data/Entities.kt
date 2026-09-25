@@ -1,5 +1,6 @@
 package com.eduardo.horarios.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -45,6 +46,10 @@ data class ActivityEntity(
     val endMinute: Int,
     val colorIndex: Int,
     val reminderMinutes: Int,
+    /** Día concreto (LocalDate.toEpochDay) si es una actividad de un solo día; null = se repite cada semana. */
+    val onDate: Long? = null,
+    /** Si cuenta en Progreso (se puede marcar como hecha). Las fijas, como comer o dormir, no. */
+    @ColumnInfo(defaultValue = "1") val tracked: Boolean = true,
 )
 
 data class ScheduleCount(

@@ -10,12 +10,13 @@ import com.eduardo.horarios.data.OverrideEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
  * Comprueba que quien actualiza desde una versión antigua conserva sus horarios.
- * Crea la base de datos tal y como la dejaban las versiones 1.0 (v1) y 1.1 (v2)
+ * Crea la base de datos tal y como la dejaban las versiones 1.0 (v1), 1.1 (v2) y 1.2 (v3)
  * y la abre con la versión actual: Room valida que el esquema final es correcto.
  */
 @RunWith(AndroidJUnit4::class)
@@ -52,6 +53,14 @@ class MigrationTest {
                     "FOREIGN KEY(`activityId`) REFERENCES `activities`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
             )
         }
+        if (version >= 3) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `day_overrides` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                    "`scheduleId` INTEGER NOT NULL, `epochDay` INTEGER NOT NULL, `type` INTEGER NOT NULL, " +
+                    "`activityId` INTEGER, `fromMinute` INTEGER NOT NULL, `minutes` INTEGER NOT NULL)"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_day_overrides_epochDay` ON `day_overrides` (`epochDay`)")
+        }
         db.execSQL("INSERT INTO schedules (id, name, emoji, colorIndex, isActive, createdAt) VALUES (1, 'Semana normal', '📅', 0, 1, 0)")
         db.execSQL(
             "INSERT INTO activities (id, scheduleId, title, emoji, notes, daysMask, startMinute, endMinute, colorIndex, reminderMinutes) " +
@@ -83,6 +92,12 @@ class MigrationTest {
                 db.overrideDao().insert(OverrideEntity(scheduleId = 1, epochDay = 20000, type = OverrideEntity.TYPE_SKIP, activityId = 1))
             }
             assertEquals(1, count(db, "day_overrides"))
+            // v4: las actividades antiguas siguen siendo semanales y cuentan en Progreso
+            db.openHelper.readableDatabase.query("SELECT onDate, tracked FROM activities").use { c ->
+                c.moveToFirst()
+                assertTrue(c.isNull(0))
+                assertEquals(1, c.getInt(1))
+            }
         } finally {
             db.close()
         }
@@ -93,4 +108,7 @@ class MigrationTest {
 
     @Test
     fun desdeVersion2() = checkUpgraded(2)
+
+    @Test
+    fun desdeVersion3() = checkUpgraded(3)
 }

@@ -52,6 +52,12 @@ interface ActivityDao {
     @Query("SELECT * FROM activities WHERE id = :id")
     suspend fun getById(id: Long): ActivityEntity?
 
+    @Query("SELECT * FROM activities")
+    suspend fun getAll(): List<ActivityEntity>
+
+    @Query("UPDATE activities SET tracked = :tracked WHERE id = :id")
+    suspend fun setTracked(id: Long, tracked: Boolean)
+
     @Query("SELECT scheduleId, COUNT(*) AS count FROM activities GROUP BY scheduleId")
     fun observeCounts(): Flow<List<ScheduleCount>>
 

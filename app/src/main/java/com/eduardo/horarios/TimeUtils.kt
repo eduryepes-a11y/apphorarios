@@ -60,3 +60,10 @@ fun daysSummary(context: Context, mask: Int): String = when (mask) {
     MASK_WEEKEND -> context.getString(R.string.days_weekend)
     else -> (0..6).filter { mask.hasDay(it) }.joinToString(" · ") { dayShort(context, it) }
 }
+
+/** «Jueves, 3 de octubre» / «Thursday, October 3», en el idioma de [context]. */
+fun longDate(context: Context, date: LocalDate): String {
+    val locale = context.resources.configuration.locales[0] ?: java.util.Locale.getDefault()
+    return date.format(java.time.format.DateTimeFormatter.ofPattern(context.getString(R.string.date_header_pattern), locale))
+        .replaceFirstChar { it.titlecase(locale) }
+}

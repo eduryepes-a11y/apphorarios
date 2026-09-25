@@ -144,7 +144,7 @@ fun WeekScreen(
         ActivitySheet(
             planned = p,
             done = done,
-            canMarkDone = !p.date.isAfter(today),
+            canMarkDone = p.activity.tracked && !p.date.isAfter(today),
             onToggleDone = {
                 vm.setDone(p, !done)
                 sheetFor = null
