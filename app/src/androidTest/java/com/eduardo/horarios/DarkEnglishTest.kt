@@ -40,7 +40,7 @@ class DarkEnglishTest {
         runBlocking { T.app.repository.createFromTemplate(Templates.first { it.key == "office" }, activate = true) }
         DaySelection.select(LocalDate.now().with(DayOfWeek.MONDAY))
 
-        T.launch(compose, "oscuro") {
+        T.launch(compose, "oscuro", language = "en") {
             compose.waitFor(card(s(R.string.tpl_act_work)))
             shot("20_en_oscuro_hoy")
 

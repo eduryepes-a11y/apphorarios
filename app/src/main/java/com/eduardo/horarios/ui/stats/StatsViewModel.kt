@@ -133,14 +133,19 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
             }
         }
 
-        val perActivity = acts.map { a ->
-            ActivityStat(
-                activity = a,
-                planned = perPlanned[a.id] ?: 0,
-                done = perDone[a.id] ?: 0,
-                weeklyMinutes = (a.endMinute - a.startMinute) * Integer.bitCount(a.daysMask),
-            )
-        }.sortedByDescending { it.weeklyMinutes }
+        // Actividades con el mismo nombre (p. ej. «Trabajo» de mañana y de tarde) se suman en una fila
+        val perActivity = acts
+            .groupBy { it.title.trim().lowercase() to it.emoji }
+            .values
+            .map { group ->
+                ActivityStat(
+                    activity = group.first(),
+                    planned = group.sumOf { perPlanned[it.id] ?: 0 },
+                    done = group.sumOf { perDone[it.id] ?: 0 },
+                    weeklyMinutes = group.sumOf { (it.endMinute - it.startMinute) * Integer.bitCount(it.daysMask) },
+                )
+            }
+            .sortedByDescending { it.weeklyMinutes }
 
         return StatsState(
             loading = false,

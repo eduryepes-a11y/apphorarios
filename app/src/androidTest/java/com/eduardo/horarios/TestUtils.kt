@@ -54,10 +54,23 @@ object T {
         }
     }
 
-    /** Abre la app y, si algo falla, guarda captura y árbol de pantalla antes de cerrarla. */
-    fun launch(compose: ComposeTestRule, name: String, block: () -> Unit) {
-        ActivityScenario.launch(MainActivity::class.java).use {
+    /**
+     * Abre la app en [language] y, si algo falla, guarda captura y árbol de pantalla antes de cerrarla.
+     * El idioma se aplica con la app ya abierta: AppCompat solo puede cambiarlo si hay una pantalla activa.
+     */
+    fun launch(compose: ComposeTestRule, name: String, language: String, block: () -> Unit) {
+        ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             try {
+                onMain { app.settings.setLanguage(language) }
+                val deadline = System.currentTimeMillis() + 15_000
+                var current = ""
+                while (System.currentTimeMillis() < deadline) {
+                    scenario.onActivity { current = it.resources.configuration.locales[0].language }
+                    if (current == language) break
+                    Thread.sleep(200)
+                }
+                check(current == language) { "La app no cambió al idioma $language (sigue en $current)" }
+                compose.waitForIdle()
                 block()
             } catch (t: Throwable) {
                 runCatching { shot(compose, "FALLO_$name") }

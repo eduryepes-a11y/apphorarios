@@ -32,10 +32,9 @@ class AppTourTest {
 
     @Test
     fun recorridoCompleto() {
-        T.onMain { T.app.settings.setLanguage("es") }
         val monday = LocalDate.now().with(DayOfWeek.MONDAY)
 
-        T.launch(compose, "recorrido") {
+        T.launch(compose, "recorrido", language = "es") {
             // ---------- Bienvenida ----------
             compose.waitFor(hasText(s(R.string.ob_welcome_title)))
             shot("01_bienvenida")

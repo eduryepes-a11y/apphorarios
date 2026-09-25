@@ -37,7 +37,7 @@ jobs:
       - name: Preparar
         run: |
           chmod +x gradlew
-          ./gradlew assembleGithubDebug assembleGithubDebugAndroidTest --stacktrace
+          ./gradlew assembleGithubDebug assembleGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace
 
       - name: Pruebas en el emulador (Android 14)
         uses: reactivecircus/android-emulator-runner@v2
@@ -48,7 +48,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedGithubDebugAndroidTest --stacktrace
+          script: ./gradlew connectedGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace
 
       - name: Resumen de fallos
         if: failure()

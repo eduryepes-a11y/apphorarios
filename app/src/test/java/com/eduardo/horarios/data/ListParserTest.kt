@@ -28,7 +28,7 @@ class ListParserTest {
     @Test
     fun emptyAndInvalidLines() {
         assertNull(ListParser.parseLine("   "))
-        assertNull(ListParser.parseLine("25:00 Algo").start)
+        assertNull(ListParser.parseLine("25:00 Algo")?.start)
         assertEquals(3, ListParser.parse("a\n\nb\n c ").size)
     }
 
