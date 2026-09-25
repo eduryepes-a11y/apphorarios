@@ -53,5 +53,7 @@ class ListParserTest {
         assertEquals("💪", ListParser.guessEmoji("Gimnasio"))
         assertEquals("🌳", ListParser.guessEmoji("Paseo con el perro"))
         assertEquals("📌", ListParser.guessEmoji("Ir a la playa"))
+        assertEquals("🛒", ListParser.guessEmoji("Groceries"))
+        assertEquals("📞", ListParser.guessEmoji("Call mum"))
     }
 }

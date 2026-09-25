@@ -61,7 +61,10 @@ fun ActivitySheet(
     val context = LocalContext.current
     val a = planned.activity
     val color = paletteColor(a.colorIndex)
-    val dayLabel = dayName(context, planned.date.dayOfWeek.value - 1).lowercase() + " " + planned.date.dayOfMonth
+    // «el lunes 21» en español; «Monday 21» en inglés (allí los días van en mayúscula)
+    val name = dayName(context, planned.date.dayOfWeek.value - 1)
+    val lowercaseDays = context.resources.configuration.locales[0].language == "es"
+    val dayLabel = (if (lowercaseDays) name.lowercase() else name) + " " + planned.date.dayOfMonth
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
