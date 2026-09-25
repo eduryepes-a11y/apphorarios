@@ -70,6 +70,7 @@
     <string name="today_badge">HOY</string>
     <string name="now_badge">AHORA</string>
     <string name="mark_not_done">Marcar como no hecha</string>
+    <string name="empty_day_title">Nada previsto</string>
     <string name="empty_day_hint">Pulsa «Añadir» para crear una actividad este día.</string>
     <string name="no_schedules_title">Aún no tienes horarios</string>
     <string name="no_schedules_text">Crea uno (por ejemplo «Semana de clase» o «Vacaciones») y actívalo para recibir avisos.</string>

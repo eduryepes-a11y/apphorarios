@@ -77,6 +77,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -91,6 +92,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eduardo.horarios.BuildConfig
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.R
+import com.eduardo.horarios.data.SettingsStore
+import androidx.compose.material.icons.rounded.Close
 import com.eduardo.horarios.data.PlannedActivity
 import com.eduardo.horarios.data.ScheduleEntity
 import com.eduardo.horarios.dayName
@@ -158,6 +161,7 @@ fun TodayScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     shape = RoundedCornerShape(20.dp),
+                    modifier = Modifier.testTag("fab_add"),
                 )
             }
         },
@@ -477,6 +481,14 @@ private fun PermissionBanners(vm: PlanViewModel) {
     val context = LocalContext.current
     var notificationsOn by remember { mutableStateOf(areNotificationsOn(context)) }
     var exactOn by remember { mutableStateOf(canExact(context)) }
+    // «No agobiar»: el aviso se puede cerrar y no vuelve a salir en una semana
+    val prefs = remember { context.getSharedPreferences(SettingsStore.PREFS, Context.MODE_PRIVATE) }
+    var hiddenUntil by remember { mutableStateOf(prefs.getLong(KEY_BANNER_HIDDEN_UNTIL, 0L)) }
+    val hidden = System.currentTimeMillis() < hiddenUntil
+    fun hideForAWeek() {
+        hiddenUntil = System.currentTimeMillis() + 7L * 24 * 60 * 60 * 1000
+        prefs.edit().putLong(KEY_BANNER_HIDDEN_UNTIL, hiddenUntil).apply()
+    }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         notificationsOn = areNotificationsOn(context)
@@ -486,7 +498,7 @@ private fun PermissionBanners(vm: PlanViewModel) {
     }
 
     Column(Modifier.padding(horizontal = 16.dp)) {
-        AnimatedVisibility(!notificationsOn) {
+        AnimatedVisibility(!notificationsOn && !hidden) {
             Banner(
                 icon = Icons.Rounded.NotificationsOff,
                 title = stringResource(R.string.banner_notif_title),
@@ -498,9 +510,10 @@ private fun PermissionBanners(vm: PlanViewModel) {
                             .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
                     )
                 },
+                onDismiss = { hideForAWeek() },
             )
         }
-        AnimatedVisibility(notificationsOn && !exactOn) {
+        AnimatedVisibility(notificationsOn && !exactOn && !hidden) {
             Banner(
                 icon = Icons.Rounded.AlarmOn,
                 title = stringResource(R.string.banner_exact_title),
@@ -513,10 +526,13 @@ private fun PermissionBanners(vm: PlanViewModel) {
                         )
                     }
                 },
+                onDismiss = { hideForAWeek() },
             )
         }
     }
 }
+
+private const val KEY_BANNER_HIDDEN_UNTIL = "banner_hidden_until"
 
 private fun areNotificationsOn(context: Context): Boolean =
     NotificationManagerCompat.from(context).areNotificationsEnabled()
@@ -526,7 +542,14 @@ private fun canExact(context: Context): Boolean =
         context.getSystemService(AlarmManager::class.java).canScheduleExactAlarms()
 
 @Composable
-private fun Banner(icon: ImageVector, title: String, text: String, action: String, onAction: () -> Unit) {
+private fun Banner(
+    icon: ImageVector,
+    title: String,
+    text: String,
+    action: String,
+    onAction: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     Surface(
         color = MaterialTheme.colorScheme.tertiaryContainer,
         shape = RoundedCornerShape(20.dp),
@@ -545,6 +568,13 @@ private fun Banner(icon: ImageVector, title: String, text: String, action: Strin
                 Text(text, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onTertiaryContainer)
             }
             TextButton(onClick = onAction) { Text(action) }
+            IconButton(onClick = onDismiss) {
+                Icon(
+                    Icons.Rounded.Close,
+                    contentDescription = stringResource(R.string.close),
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f),
+                )
+            }
         }
     }
 }
@@ -936,7 +966,7 @@ private fun EmptyDay(onBulkAdd: () -> Unit) {
     ) {
         Text("🌤️", fontSize = 52.sp)
         Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.day_free), style = MaterialTheme.typography.titleLarge)
+        Text(stringResource(R.string.empty_day_title), style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.empty_day_hint),

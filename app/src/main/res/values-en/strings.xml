@@ -70,6 +70,7 @@
     <string name="today_badge">TODAY</string>
     <string name="now_badge">NOW</string>
     <string name="mark_not_done">Mark as not done</string>
+    <string name="empty_day_title">Nothing planned</string>
     <string name="empty_day_hint">Tap “Add” to create an activity for this day.</string>
     <string name="no_schedules_title">No schedules yet</string>
     <string name="no_schedules_text">Create one (for example “School week” or “Holidays”) and activate it to get reminders.</string>

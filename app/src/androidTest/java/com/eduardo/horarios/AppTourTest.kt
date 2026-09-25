@@ -112,7 +112,7 @@ class AppTourTest {
 
             // ---------- Editor ----------
             compose.clickFirst(tab(s(R.string.tab_today)))
-            compose.clickFirst(hasText(s(R.string.add)) and androidx.compose.ui.test.hasClickAction())
+            compose.clickFirst(androidx.compose.ui.test.hasTestTag("fab_add"))
             compose.waitFor(hasContentDescription(s(R.string.bulk_add_title)))
             shot("15_editor_nueva_actividad")
         }
