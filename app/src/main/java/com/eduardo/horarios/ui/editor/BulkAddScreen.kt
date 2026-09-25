@@ -56,6 +56,7 @@ import com.eduardo.horarios.hm
 import com.eduardo.horarios.ui.components.SectionLabel
 import com.eduardo.horarios.ui.theme.DefaultStatusBarIcons
 import com.eduardo.horarios.ui.theme.paletteColor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /** Pegar o escribir una lista y crear varias actividades de golpe. */
@@ -87,7 +88,8 @@ fun BulkAddScreen(initialDay: Int, onBack: () -> Unit) {
             Surface(color = MaterialTheme.colorScheme.background) {
                 Button(
                     onClick = {
-                        scope.launch {
+                        // El Toast y la navegación deben ir en el hilo principal
+                        scope.launch(Dispatchers.Main.immediate) {
                             app.repository.addActivities(preview)
                             Toast.makeText(
                                 context,

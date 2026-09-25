@@ -52,6 +52,7 @@ import com.eduardo.horarios.R
 import com.eduardo.horarios.ui.components.TemplateList
 import com.eduardo.horarios.ui.theme.DefaultStatusBarIcons
 import com.eduardo.horarios.ui.theme.headerBrush
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
@@ -158,13 +159,15 @@ fun OnboardingScreen(onDone: () -> Unit) {
                         Spacer(Modifier.height(20.dp))
                         TemplateList(
                             onPick = { t ->
-                                scope.launch {
+                                // Base de datos en segundo plano; la navegación siempre en el hilo principal
+                                scope.launch(Dispatchers.Main.immediate) {
                                     app.repository.createFromTemplate(t, activate = true)
                                     finish()
                                 }
                             },
                             onBlank = {
-                                scope.launch {
+                                // Base de datos en segundo plano; la navegación siempre en el hilo principal
+                                scope.launch(Dispatchers.Main.immediate) {
                                     app.repository.createSchedule(context.getString(R.string.default_schedule_name), "📅", 0)
                                     finish()
                                 }
