@@ -49,7 +49,7 @@ class AppTourTest {
             compose.clickFirst(hasText(s(R.string.tpl_student)))
 
             // ---------- Hoy (lunes de esta semana) ----------
-            compose.waitFor(tab(s(R.string.tab_week)))
+            compose.waitFor(tab(s(R.string.tab_week)), timeoutMs = 30_000)
             DaySelection.select(monday)
             val classes = s(R.string.tpl_act_classes)
             compose.waitFor(card(classes))

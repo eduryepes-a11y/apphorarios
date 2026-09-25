@@ -48,7 +48,7 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace
+          script: ./gradlew connectedGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace; s=$?; adb logcat -d > app/build/logcat.txt 2>/dev/null; exit $s
 
       - name: Resumen de fallos
         if: failure()
@@ -71,6 +71,9 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
           find app/build/outputs -path '*additional_output*' \( -name '*.png' -o -name '*.txt' \) -exec cp {} "$RUNNER_TEMP/shots/" \; || true
+          if [ -f app/build/logcat.txt ]; then
+            grep -E "AndroidRuntime|FATAL|horarios|Horarios|TestRunner|System.err" app/build/logcat.txt | tail -n 3000 > "$RUNNER_TEMP/shots/logcat.txt" || true
+          fi
           cd "$RUNNER_TEMP/shots"
           ls -la
           if [ -z "$(ls -A)" ]; then echo "No hay capturas"; exit 0; fi

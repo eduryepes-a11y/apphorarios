@@ -54,6 +54,25 @@ object T {
         }
     }
 
+    /** Estado interno (base de datos y ajustes) para entender un fallo. */
+    private fun dumpState(name: String) {
+        runCatching {
+            val sb = StringBuilder()
+            sb.append("onboarded=").append(app.settings.onboarded).append('\n')
+            sb.append("language=").append(app.settings.language).append('\n')
+            val db = app.database.openHelper.readableDatabase
+            for (table in listOf("schedules", "activities", "day_overrides", "completions")) {
+                db.query("SELECT * FROM $table").use { c ->
+                    sb.append("\n[").append(table).append("] ").append(c.count).append(" filas\n")
+                    while (c.moveToNext()) {
+                        sb.append((0 until c.columnCount).joinToString(" | ") { "${c.getColumnName(it)}=${c.getString(it)}" }).append('\n')
+                    }
+                }
+            }
+            TestStorage().openOutputFile("screenshots/${name}_estado.txt").use { it.write(sb.toString().toByteArray()) }
+        }
+    }
+
     /**
      * Abre la app en [language] y, si algo falla, guarda captura y árbol de pantalla antes de cerrarla.
      * El idioma se aplica con la app ya abierta: AppCompat solo puede cambiarlo si hay una pantalla activa.
@@ -75,6 +94,7 @@ object T {
             } catch (t: Throwable) {
                 runCatching { shot(compose, "FALLO_$name") }
                 dumpTree(compose, "FALLO_$name")
+                dumpState("FALLO_$name")
                 throw t
             }
         }
