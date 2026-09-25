@@ -134,6 +134,7 @@
     <string name="diag_kind_start">empieza</string>
     <string name="diag_kind_before">aviso previo</string>
     <string name="diag_next">Próximo aviso: %1$s (%2$s) · %3$s</string>
+    <string name="diag_loading">Comprobando avisos…</string>
     <string name="diag_no_next">No hay avisos programados en el horario activo.</string>
     <string name="diag_trigger_at">%1$s a las %2$s</string>
     <string name="diag_section_what">Qué avisos quieres</string>

@@ -103,6 +103,8 @@ fun NotificationsScreen(onBack: () -> Unit) {
     var next by remember { mutableStateOf<NextReminder?>(null) }
     var log by remember { mutableStateOf(AlarmLog.read(context)) }
     var scheduledCount by remember { mutableIntStateOf(0) }
+    // Mientras se reprograma no se muestra «no hay avisos» (sería falso)
+    var loaded by remember { mutableStateOf(false) }
 
     LaunchedEffect(refreshKey, alarmMode, startAlerts) {
         // Reprograma por si algún permiso acaba de cambiar
@@ -110,6 +112,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
         next = app.scheduler.nextReminder()
         scheduledCount = app.scheduler.lastScheduledCount
         log = AlarmLog.read(context)
+        loaded = true
     }
 
     val allOk = notificationsOn && channelOn && exactOn && batteryOk
@@ -150,7 +153,9 @@ fun NotificationsScreen(onBack: () -> Unit) {
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(
+                    if (!loaded) {
+                        Text(stringResource(R.string.diag_loading), style = MaterialTheme.typography.bodyMedium)
+                    } else Text(
                         next?.let {
                             val what = stringResource(
                                 if (it.kind == AlarmScheduler.KIND_START) R.string.diag_kind_start else R.string.diag_kind_before
@@ -164,7 +169,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                         } ?: stringResource(R.string.diag_no_next),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    Text(
+                    if (loaded) Text(
                         pluralStringResource(R.plurals.diag_scheduled, scheduledCount, scheduledCount),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,

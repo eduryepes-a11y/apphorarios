@@ -134,6 +134,7 @@
     <string name="diag_kind_start">starts</string>
     <string name="diag_kind_before">early reminder</string>
     <string name="diag_next">Next reminder: %1$s (%2$s) · %3$s</string>
+    <string name="diag_loading">Checking reminders…</string>
     <string name="diag_no_next">No reminders scheduled in the active schedule.</string>
     <string name="diag_trigger_at">%1$s at %2$s</string>
     <string name="diag_section_what">Which reminders</string>
