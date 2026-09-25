@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.eduardo.horarios.R
 import com.eduardo.horarios.data.PlannedActivity
 import com.eduardo.horarios.dayName
+import com.eduardo.horarios.dayNameInSentence
 import com.eduardo.horarios.durationLabel
 import com.eduardo.horarios.hm
 import com.eduardo.horarios.reminderChipLabel
@@ -62,9 +63,7 @@ fun ActivitySheet(
     val a = planned.activity
     val color = paletteColor(a.colorIndex)
     // «el lunes 21» en español; «Monday 21» en inglés (allí los días van en mayúscula)
-    val name = dayName(context, planned.date.dayOfWeek.value - 1)
-    val lowercaseDays = context.resources.configuration.locales[0].language == "es"
-    val dayLabel = (if (lowercaseDays) name.lowercase() else name) + " " + planned.date.dayOfMonth
+    val dayLabel = dayNameInSentence(context, planned.date.dayOfWeek.value - 1) + " " + planned.date.dayOfMonth
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,

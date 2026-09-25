@@ -72,6 +72,7 @@ import com.eduardo.horarios.ui.components.SectionLabel
 import com.eduardo.horarios.ui.theme.DefaultStatusBarIcons
 import com.eduardo.horarios.R
 import com.eduardo.horarios.dayName
+import com.eduardo.horarios.dayNameInSentence
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
@@ -404,7 +405,7 @@ private fun StatusRow(
 
 private fun formatTrigger(context: Context, millis: Long): String {
     val dt = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault())
-    val day = dayName(context, dt.dayOfWeek.value - 1).lowercase()
+    val day = dayNameInSentence(context, dt.dayOfWeek.value - 1)
     return context.getString(R.string.diag_trigger_at, day, "%02d:%02d".format(dt.hour, dt.minute))
 }
 

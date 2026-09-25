@@ -27,6 +27,12 @@ fun dayShort(context: Context, day: Int): String = context.resources.getStringAr
 
 fun dayName(context: Context, day: Int): String = context.resources.getStringArray(R.array.days_long)[day]
 
+/** Nombre del día dentro de una frase: «el lunes» en español, «on Monday» en inglés (con mayúscula). */
+fun dayNameInSentence(context: Context, day: Int): String {
+    val name = dayName(context, day)
+    return if (context.resources.configuration.locales[0].language == "es") name.lowercase() else name
+}
+
 fun durationLabel(context: Context, minutes: Int): String {
     val h = minutes / 60
     val m = minutes % 60
