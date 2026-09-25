@@ -22,6 +22,12 @@ Una vez instalada, la app te avisa sola cuando hay versión nueva y se actualiza
 - **Actualizaciones automáticas** desde GitHub Releases (variante `github`).
 - Dos variantes: `github` (APK con autoactualización) y `play` (para Google Play, sin autoactualizador). Cada Release adjunta el APK y el `.aab` para Play.
 
+## Pruebas
+- **Unitarias** (`app/src/test`): lógica de excepciones/retrasos, pegar lista y versiones. Se ejecutan en cada push (`./gradlew testGithubDebugUnitTest`).
+- **En emulador** (`app/src/androidTest`): recorrido completo de la app como usuario nuevo, versión en inglés y tema oscuro, y migraciones de la base de datos. Las ejecuta el workflow *Pruebas en emulador* en cada push a `main` (o a mano desde Actions).
+- Cada recorrido guarda **capturas de todas las pantallas** en la rama [`ui-screenshots`](../../tree/ui-screenshots). Si una prueba falla, también se guarda `FALLO_*.png` con lo que se veía.
+- En local: `./gradlew connectedGithubDebugAndroidTest` con un emulador abierto.
+
 ## Desarrollo
 1. Android Studio → **File › Open** → carpeta del proyecto.
 2. Espera al *Gradle Sync* y pulsa ▶ **Run**.

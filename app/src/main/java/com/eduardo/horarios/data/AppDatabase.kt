@@ -54,6 +54,9 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Todas las migraciones, en orden (también las usan las pruebas). */
+        val MIGRATIONS: Array<Migration> get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {
                 instance ?: Room.databaseBuilder(
@@ -61,7 +64,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "horarios.db",
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(*MIGRATIONS)
                     .build()
                     .also { instance = it }
             }

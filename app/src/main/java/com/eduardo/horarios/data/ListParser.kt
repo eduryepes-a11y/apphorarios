@@ -70,7 +70,7 @@ object ListParser {
         listOf("estudi", "study", "exam", "repas", "deberes", "homework") to "📚",
         listOf("clase", "class", "school", "cole", "uni", "instituto") to "🎓",
         listOf("gim", "gym", "entren", "workout", "pesas") to "💪",
-        listOf("correr", "running", "run ", "carrera") to "🏃",
+        listOf("correr", "running", "run", "carrera") to "🏃",
         listOf("comid", "lunch", "cena", "dinner", "desayun", "breakfast", "almuerz", "merienda") to "🍽️",
         listOf("trabaj", "work", "reuni", "meeting", "oficina", "office") to "💼",
         listOf("leer", "lectura", "read", "libro", "book") to "📖",
@@ -82,14 +82,18 @@ object ListParser {
         listOf("música", "musica", "music", "guitarra", "guitar", "piano") to "🎸",
         listOf("medit", "yoga") to "🧘",
         listOf("paseo", "walk", "perro", "dog") to "🌳",
-        listOf("llamar", "llamada", "call") to "📞",
+        listOf("llamar", "llamada", "phone") to "📞",
         listOf("cocin", "cook") to "🍳",
         listOf("dibuj", "pint", "draw", "paint") to "🎨",
-        listOf("juego", "jugar", "game", "play") to "🎮",
+        listOf("juego", "jugar", "game", "videojuego") to "🎮",
     )
 
+    private val wordSplit = Regex("""[^\p{L}\p{N}]+""")
+
+    /** Elige un icono según el título. Compara con el principio de cada palabra
+     *  («reunión» no debe confundirse con «uni» de universidad). */
     fun guessEmoji(title: String): String {
-        val t = title.lowercase() + " "
-        return emojiRules.firstOrNull { (keys, _) -> keys.any { it in t } }?.second ?: "📌"
+        val words = title.lowercase().split(wordSplit).filter { it.isNotEmpty() }
+        return emojiRules.firstOrNull { (keys, _) -> keys.any { k -> words.any { it.startsWith(k) } } }?.second ?: "📌"
     }
 }
