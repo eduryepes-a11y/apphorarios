@@ -333,7 +333,6 @@
     <string name="stats_consistency">Consistency</string>
     <string name="stats_heatmap_help">Each square is a day (each column, a week). The more colour, the more habits you did that day.</string>
     <string name="stats_heatmap_tap">Tap a day to see the details.</string>
-    <string name="stats_day_detail">%1$s: %2$d of %3$d habits done</string>
     <string name="stats_day_none">%1$s: no habits that day</string>
     <string name="stats_day_future">%1$s: not here yet</string>
     <string name="stats_less">Less</string>
@@ -368,6 +367,10 @@
         <item>Saturday</item>
         <item>Sunday</item>
     </string-array>
+    <plurals name="stats_day_detail">
+        <item quantity="one">%1$s: %2$d of %3$d habit done</item>
+        <item quantity="other">%1$s: %2$d of %3$d habits done</item>
+    </plurals>
     <plurals name="activities_count">
         <item quantity="one">%d activity</item>
         <item quantity="other">%d activities</item>

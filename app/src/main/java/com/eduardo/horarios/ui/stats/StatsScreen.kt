@@ -457,7 +457,7 @@ private fun ConsistencyCard(r: StatsResult, empty: Boolean) {
                 sel == null -> stringResource(R.string.stats_heatmap_tap)
                 sel.future -> stringResource(R.string.stats_day_future, longDate(context, sel.date))
                 sel.planned == 0 -> stringResource(R.string.stats_day_none, longDate(context, sel.date))
-                else -> stringResource(R.string.stats_day_detail, longDate(context, sel.date), sel.done, sel.planned)
+                else -> pluralStringResource(R.plurals.stats_day_detail, sel.planned, longDate(context, sel.date), sel.done, sel.planned)
             },
             style = if (sel == null) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
             color = if (sel == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
