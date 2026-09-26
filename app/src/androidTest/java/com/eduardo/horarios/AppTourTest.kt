@@ -177,8 +177,8 @@ class AppTourTest {
             compose.waitFor(hasText(s(R.string.stats_week_hours).uppercase()))
             compose.waitFor(hasTestTag("week_total"))
             shot("15_progreso")
-            // «Estudiar» (lunes a jueves) se marcó el lunes: 1 de 4 esta semana, meta 3
-            compose.waitFor(hasText(s(R.string.stats_habit_week, 1, 4, 3)))
+            // «Estudiar» (lunes a jueves) se marcó el lunes: 1 de 4 esta semana
+            compose.waitFor(hasText(s(R.string.stats_habit_week, 1, 4)))
             compose.waitFor(hasTestTag("heatmap"))
             compose.onNode(hasTestTag("heatmap")).performScrollTo()
             shot("15b_progreso_constancia")

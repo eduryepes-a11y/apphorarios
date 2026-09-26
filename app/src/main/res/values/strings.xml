@@ -334,7 +334,7 @@
     <string name="stats_less">Menos</string>
     <string name="stats_more">Más</string>
     <string name="stats_habits">Tus hábitos</string>
-    <string name="stats_habit_week">Esta semana: %1$d de %2$d · meta %3$d</string>
+    <string name="stats_habit_week">Esta semana: %1$d de %2$d</string>
     <string name="stats_export">Exportar a CSV</string>
     <string name="stats_export_done">Exportado ✓</string>
     <string name="stats_export_error">No se ha podido exportar</string>

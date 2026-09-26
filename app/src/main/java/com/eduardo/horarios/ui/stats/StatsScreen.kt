@@ -488,7 +488,7 @@ private fun HabitRow(h: HabitStat) {
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                stringResource(R.string.stats_habit_week, h.weekDone, h.weekPlanned, h.weeklyGoal),
+                stringResource(R.string.stats_habit_week, h.weekDone, h.weekPlanned),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

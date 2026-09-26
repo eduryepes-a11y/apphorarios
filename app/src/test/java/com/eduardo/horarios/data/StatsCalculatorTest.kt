@@ -25,14 +25,11 @@ class StatsCalculatorTest {
     private fun done(a: Long, d: LocalDate) = CompletionEntity(a, d.toEpochDay())
 
     @Test
-    fun weeklyGoalLeavesSomeMargin() {
+    fun weeklyGoalIsEveryPlannedDay() {
         assertEquals(0, StatsCalculator.weeklyGoal(0))
         assertEquals(1, StatsCalculator.weeklyGoal(1))
-        assertEquals(1, StatsCalculator.weeklyGoal(2))
-        assertEquals(2, StatsCalculator.weeklyGoal(3))
-        assertEquals(3, StatsCalculator.weeklyGoal(4))
-        assertEquals(4, StatsCalculator.weeklyGoal(5))
-        assertEquals(5, StatsCalculator.weeklyGoal(7))
+        assertEquals(3, StatsCalculator.weeklyGoal(3))
+        assertEquals(7, StatsCalculator.weeklyGoal(7))
     }
 
     @Test
@@ -71,13 +68,13 @@ class StatsCalculatorTest {
 
     @Test
     fun streakCountsWeeksMeetingTheGoal() {
-        val gym = act(2, "Gimnasio", 0b0010101, 18 * 60, 19 * 60) // L, X, V → meta 2
+        val gym = act(2, "Gimnasio", 0b0010101, 18 * 60, 19 * 60) // L, X, V → meta 3
         val lunch = act(3, "Comida", 0b1111111, 14 * 60, 15 * 60, tracked = false)
         val completions = listOf(
             done(2, monday),                                                        // esta semana: 1 de 3
-            done(2, monday.minusDays(7)), done(2, monday.minusDays(5)),            // semana pasada: 2 ✓
-            done(2, monday.minusDays(14)), done(2, monday.minusDays(12)), done(2, monday.minusDays(10)), // ✓
-            done(2, monday.minusDays(21)),                                          // 1 de 3 ✗ → corta
+            done(2, monday.minusDays(7)), done(2, monday.minusDays(5)), done(2, monday.minusDays(3)),   // 3 de 3 ✓
+            done(2, monday.minusDays(14)), done(2, monday.minusDays(12)), done(2, monday.minusDays(10)), // 3 de 3 ✓
+            done(2, monday.minusDays(21)), done(2, monday.minusDays(19)),           // 2 de 3 ✗ → corta (meta 100 %)
         )
         val r = StatsCalculator.compute(wednesday, 20 * 60, listOf(gym, lunch), completions, emptyList(), periodDays = 7)
 
@@ -86,12 +83,12 @@ class StatsCalculatorTest {
         assertEquals(2, habit.streakWeeks) // la semana en curso aún no rompe la racha
         assertEquals(3, habit.weekPlanned)
         assertEquals(1, habit.weekDone)
-        assertEquals(2, habit.weeklyGoal)
+        assertEquals(3, habit.weeklyGoal)
 
-        // Últimos 7 días (17–23): vie 18, lun 21 y mié 23 → hecha solo el lunes. La comida no cuenta.
+        // Últimos 7 días (17–23): vie 18, lun 21 y mié 23 → hechas el viernes y el lunes. La comida no cuenta.
         assertEquals(3, r.planned)
-        assertEquals(1, r.done)
-        assertEquals(33, r.percent)
+        assertEquals(2, r.done)
+        assertEquals(66, r.percent)
     }
 
     @Test
@@ -102,6 +99,17 @@ class StatsCalculatorTest {
         assertEquals(listOf("Gimnasio"), r.habits.map { it.activity.title })
         assertEquals(4, r.planned) // gimnasio vie 18, lun 21, mié 23 + dentista mié 23
         assertEquals(1, r.done)
+    }
+
+    @Test
+    fun skippedDaysDoNotBreakTheStreak() {
+        val gym = act(2, "Gimnasio", 0b0010101, 18 * 60, 19 * 60)
+        // Semana pasada: lunes y miércoles hechos; el viernes se saltó con «No hacerla» → 2 de 2 ✓
+        val lastWeek = monday.minusDays(7)
+        val completions = listOf(done(2, lastWeek), done(2, lastWeek.plusDays(2)))
+        val overrides = listOf(skip(lastWeek.plusDays(4), 2))
+        val r = StatsCalculator.compute(wednesday, 12 * 60, listOf(gym), completions, overrides, 7)
+        assertEquals(1, r.habits.single().streakWeeks)
     }
 
     @Test

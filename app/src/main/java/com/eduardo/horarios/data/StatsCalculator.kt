@@ -55,12 +55,11 @@ object StatsCalculator {
 
     const val HEATMAP_WEEKS = 12
 
-    /** Veces que hay que hacerla en una semana para que cuente: el 80 %, con un mínimo de 1. */
-    fun weeklyGoal(planned: Int): Int = when {
-        planned <= 0 -> 0
-        planned == 1 -> 1
-        else -> max(1, floor(planned * 0.8).toInt())
-    }
+    /**
+     * Veces que hay que hacerla en una semana para que cuente: todas las que tocaban (100 %).
+     * Los días que se saltan con «No hacerla» o un día libre no cuentan, así que no penalizan.
+     */
+    fun weeklyGoal(planned: Int): Int = planned.coerceAtLeast(0)
 
     private fun key(a: ActivityEntity) = a.title.trim().lowercase() to a.emoji
 
