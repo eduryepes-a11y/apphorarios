@@ -95,6 +95,16 @@ class StatsCalculatorTest {
     }
 
     @Test
+    fun oneOffActivitiesAreNotHabitsButCountInConsistency() {
+        val gym = act(2, "Gimnasio", 0b0010101, 18 * 60, 19 * 60)
+        val dentist = act(9, "Dentista", 0b0000100, 17 * 60, 18 * 60).copy(onDate = wednesday.toEpochDay())
+        val r = StatsCalculator.compute(wednesday, 20 * 60, listOf(gym, dentist), listOf(done(9, wednesday)), emptyList(), 7)
+        assertEquals(listOf("Gimnasio"), r.habits.map { it.activity.title })
+        assertEquals(4, r.planned) // gimnasio vie 18, lun 21, mié 23 + dentista mié 23
+        assertEquals(1, r.done)
+    }
+
+    @Test
     fun heatmapCoversTwelveWeeksAndMarksTheFuture() {
         val gym = act(2, "Gimnasio", 0b1111111, 8 * 60, 9 * 60)
         val r = StatsCalculator.compute(wednesday, 12 * 60, listOf(gym), listOf(done(2, wednesday)), emptyList(), 7)

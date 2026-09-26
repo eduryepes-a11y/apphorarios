@@ -162,7 +162,9 @@ object StatsCalculator {
         }
 
         // Hábitos: progreso de esta semana y racha de semanas cumpliendo
+        // Las actividades de un solo día (el dentista) no son hábitos: cuentan en la constancia, no aquí
         val habits = tracked
+            .filter { it.onDate == null }
             .groupBy { key(it) }
             .map { (k, group) ->
                 fun weekCounts(start: LocalDate): Pair<Int, Int> {

@@ -83,8 +83,15 @@ class AppTourTest {
             shot("03_bienvenida_plantillas")
             compose.clickFirst(hasText(s(R.string.tpl_student)))
 
-            // ---------- Hoy (lunes de esta semana) ----------
+            // ---------- Progreso recién empezado: mensaje de ánimo, no un calendario gris ----------
             compose.waitFor(tab(s(R.string.tab_week)), timeoutMs = 30_000)
+            compose.clickFirst(tab(s(R.string.tab_progress)))
+            compose.waitFor(hasTestTag("consistency_empty"))
+            compose.onNode(hasTestTag("consistency_empty")).performScrollTo()
+            shot("03b_progreso_vacio")
+            compose.clickFirst(tab(s(R.string.tab_today)))
+
+            // ---------- Hoy (lunes de esta semana) ----------
             DaySelection.select(monday)
             val classes = s(R.string.tpl_act_classes)
             compose.waitFor(card(classes))

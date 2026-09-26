@@ -52,6 +52,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -192,8 +193,7 @@ fun StatsScreen(
             if (!state.anyTracked) {
                 InfoCard(stringResource(R.string.stats_no_activities))
             } else {
-                if (!state.anyCompletion) InfoCard(stringResource(R.string.stats_hint))
-                ConsistencyCard(result)
+                ConsistencyCard(result, empty = !state.anyCompletion)
 
                 // ---------- Tus hábitos ----------
                 if (result.habits.isNotEmpty()) {
@@ -338,7 +338,7 @@ private fun WeekHoursCard(w: WeekHours) {
 // ------------------------------------------------------------------
 
 @Composable
-private fun ConsistencyCard(r: StatsResult) {
+private fun ConsistencyCard(r: StatsResult, empty: Boolean) {
     val context = LocalContext.current
     val primary = MaterialTheme.colorScheme.primary
     Card {
@@ -358,6 +358,35 @@ private fun ConsistencyCard(r: StatsResult) {
             }
         }
         Spacer(Modifier.height(14.dp))
+
+        // Sin nada marcado aún: un mensaje de ánimo en vez de un calendario gris
+        if (empty) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f))
+                    .padding(vertical = 20.dp, horizontal = 16.dp)
+                    .testTag("consistency_empty"),
+            ) {
+                Text("🌱", fontSize = 34.sp)
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    stringResource(R.string.stats_empty_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    stringResource(R.string.stats_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    textAlign = TextAlign.Center,
+                )
+            }
+            return@Card
+        }
 
         // 7 filas (L…D) × 12 semanas
         val weeks = r.heatmap.chunked(7)

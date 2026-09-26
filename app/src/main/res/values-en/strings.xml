@@ -233,6 +233,7 @@
     <string name="stats_28_days">28 days</string>
     <string name="stats_completion">Done</string>
     <string name="stats_done_of">%1$d of %2$d</string>
+    <string name="stats_empty_title">Your consistency will show up here</string>
     <string name="stats_hint">Mark activities as done with the ✓ (in the day list or from the notification) and your progress will show up here.</string>
     <string name="stats_no_activities">No activity is tracked in Progress. Turn on “Track in Progress” in each activity.</string>
     <string name="tab_today">Today</string>
