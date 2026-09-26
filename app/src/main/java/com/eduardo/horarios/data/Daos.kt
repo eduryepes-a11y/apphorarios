@@ -88,6 +88,9 @@ interface CompletionDao {
     @Query("SELECT * FROM completions WHERE epochDay BETWEEN :fromDay AND :toDay")
     fun observeRange(fromDay: Long, toDay: Long): Flow<List<CompletionEntity>>
 
+    @Query("SELECT * FROM completions WHERE epochDay BETWEEN :fromDay AND :toDay")
+    suspend fun getRange(fromDay: Long, toDay: Long): List<CompletionEntity>
+
     @Query("SELECT * FROM completions WHERE activityId = :activityId")
     suspend fun getForActivity(activityId: Long): List<CompletionEntity>
 

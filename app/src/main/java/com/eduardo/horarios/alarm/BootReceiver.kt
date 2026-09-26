@@ -20,6 +20,7 @@ class BootReceiver : BroadcastReceiver() {
                     Notifications.showUpdated(context, UpdateManager.currentVersion(context))
                 }
                 app.scheduler.rescheduleAll()
+                WeeklySummary.schedule(context)
             } finally {
                 pending.finish()
             }

@@ -3,6 +3,7 @@ package com.eduardo.horarios
 import android.app.Application
 import com.eduardo.horarios.alarm.AlarmScheduler
 import com.eduardo.horarios.alarm.Notifications
+import com.eduardo.horarios.alarm.WeeklySummary
 import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.SettingsStore
@@ -28,6 +29,7 @@ class HorariosApp : Application() {
         super.onCreate()
         settings = SettingsStore(this)
         Notifications.createChannel(this)
+        WeeklySummary.createChannel(this)
         database = AppDatabase.get(this)
         scheduler = AlarmScheduler(this, database)
         repository = HorariosRepository(this, database, scheduler)
@@ -39,6 +41,7 @@ class HorariosApp : Application() {
             repository.applyTrackingDefaultsOnce()
             repository.cleanOldOverrides()
             scheduler.rescheduleAll()
+            WeeklySummary.schedule(this@HorariosApp)
         }
     }
 }

@@ -229,18 +229,12 @@
     <string name="import_invalid_title">Invalid file</string>
     <string name="import_invalid_text">This file isn\'t a Horarios schedule or backup.</string>
     <string name="stats_no_schedule">Activate a schedule to see your statistics.</string>
-    <string name="stats_7_days">Last 7 days</string>
-    <string name="stats_28_days">Last 28 days</string>
+    <string name="stats_7_days">7 days</string>
+    <string name="stats_28_days">28 days</string>
     <string name="stats_completion">Done</string>
     <string name="stats_done_of">%1$d of %2$d</string>
-    <string name="stats_streak">Streak</string>
-    <string name="stats_weekly_hours">Per week</string>
-    <string name="stats_scheduled">scheduled</string>
     <string name="stats_hint">Mark activities as done with the ✓ (in the day list or from the notification) and your progress will show up here.</string>
-    <string name="stats_this_week">This week</string>
-    <string name="stats_by_activity">By activity</string>
     <string name="stats_no_activities">No activity is tracked in Progress. Turn on “Track in Progress” in each activity.</string>
-    <string name="stats_per_week">%1$s per week</string>
     <string name="tab_today">Today</string>
     <string name="tab_week">Week</string>
     <string name="tab_schedules">Schedules</string>
@@ -323,6 +317,33 @@
     <string name="track_off_text">Fixed activity (meals, sleep, class…): not counted in Progress.</string>
     <string name="settings_advanced">Advanced</string>
     <string name="diag_entry_title">Reminder diagnostics</string>
+    <string name="stats_90_days">90 days</string>
+    <string name="stats_week_hours">Your week in hours</string>
+    <string name="stats_vs_last_week_more">%1$s more than last week</string>
+    <string name="stats_vs_last_week_less">%1$s less than last week</string>
+    <string name="stats_vs_last_week_same">Same as last week</string>
+    <string name="stats_other">Other</string>
+    <string name="stats_happened">What happened</string>
+    <string name="stats_delays">Delays</string>
+    <string name="stats_delays_avg">avg %1$s</string>
+    <string name="stats_no_delays">none</string>
+    <string name="stats_skipped">Skipped</string>
+    <string name="stats_days_off">Days off</string>
+    <string name="stats_consistency">Consistency</string>
+    <string name="stats_less">Less</string>
+    <string name="stats_more">More</string>
+    <string name="stats_habits">Your habits</string>
+    <string name="stats_habit_week">This week: %1$d of %2$d · goal %3$d</string>
+    <string name="stats_export">Export to CSV</string>
+    <string name="stats_export_done">Exported ✓</string>
+    <string name="stats_export_error">Couldn\'t export</string>
+    <string name="stats_export_text">Everything from the last year (activities, done, skipped and delays) in a spreadsheet.</string>
+    <string name="weekly_summary_title">Weekly summary</string>
+    <string name="weekly_summary_text">On Sunday at 19:00, a notification with your week: hours, habits done and delays.</string>
+    <string name="summary_channel_name">Weekly summary</string>
+    <string name="summary_title">Your week in Horarios 📊</string>
+    <string name="summary_text">%1$s of activities · habits %2$d of %3$d · %4$s</string>
+    <string name="summary_no_delays">no delays</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>
@@ -344,10 +365,6 @@
     <plurals name="activities_count">
         <item quantity="one">%d activity</item>
         <item quantity="other">%d activities</item>
-    </plurals>
-    <plurals name="days_count">
-        <item quantity="one">%d day</item>
-        <item quantity="other">%d days</item>
     </plurals>
     <plurals name="delete_schedule_text">
         <item quantity="one">Its activity will be deleted too. This can\'t be undone.</item>
@@ -376,5 +393,17 @@
     <plurals name="bulk_added">
         <item quantity="one">%d activity added ✓</item>
         <item quantity="other">%d activities added ✓</item>
+    </plurals>
+    <plurals name="stats_last_days">
+        <item quantity="one">in the last day</item>
+        <item quantity="other">in the last %d days</item>
+    </plurals>
+    <plurals name="stats_streak_weeks">
+        <item quantity="one">🔥 %d week</item>
+        <item quantity="other">🔥 %d weeks</item>
+    </plurals>
+    <plurals name="summary_delays">
+        <item quantity="one">%d day running late</item>
+        <item quantity="other">%d days running late</item>
     </plurals>
 </resources>

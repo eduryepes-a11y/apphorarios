@@ -332,12 +332,18 @@ fun NotificationsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-internal fun ToggleCard(title: String, text: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun ToggleCard(
+    title: String,
+    text: String,
+    checked: Boolean,
+    onChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     Surface(
         color = MaterialTheme.colorScheme.surface,
         shape = RoundedCornerShape(20.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {

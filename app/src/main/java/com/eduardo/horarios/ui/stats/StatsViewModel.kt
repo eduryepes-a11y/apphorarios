@@ -6,53 +6,30 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.eduardo.horarios.HorariosApp
-import com.eduardo.horarios.data.ActivityEntity
-import com.eduardo.horarios.data.CompletionEntity
 import com.eduardo.horarios.data.HorariosRepository
-import com.eduardo.horarios.data.OverrideEntity
-import com.eduardo.horarios.data.Planner
 import com.eduardo.horarios.data.ScheduleEntity
-import com.eduardo.horarios.hasDay
+import com.eduardo.horarios.data.StatsCalculator
+import com.eduardo.horarios.data.StatsResult
 import com.eduardo.horarios.nowMinuteOfDay
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
-import java.time.DayOfWeek
 import java.time.LocalDate
-
-data class ActivityStat(
-    val activity: ActivityEntity,
-    val planned: Int,
-    val done: Int,
-    val weeklyMinutes: Int,
-)
-
-data class DayStat(
-    val day: Int,
-    val planned: Int,
-    val done: Int,
-    val isToday: Boolean,
-    val isFuture: Boolean,
-)
 
 data class StatsState(
     val loading: Boolean = true,
     val schedule: ScheduleEntity? = null,
-    val periodDays: Int = 7,
-    val planned: Int = 0,
-    val done: Int = 0,
-    val streak: Int = 0,
-    val weeklyMinutes: Int = 0,
-    val week: List<DayStat> = emptyList(),
-    val perActivity: List<ActivityStat> = emptyList(),
+    val result: StatsResult? = null,
+    /** Hay alguna actividad que se sigue en Progreso. */
+    val anyTracked: Boolean = false,
     val anyCompletion: Boolean = false,
-) {
-    val percent: Int? get() = if (planned == 0) null else (done * 100 / planned)
-}
+)
 
-class StatsViewModel(repo: HorariosRepository) : ViewModel() {
+class StatsViewModel(private val repo: HorariosRepository) : ViewModel() {
 
     val period = MutableStateFlow(7)
 
@@ -63,106 +40,30 @@ class StatsViewModel(repo: HorariosRepository) : ViewModel() {
         repo.overridesBetween(LocalDate.now().minusDays(400).toEpochDay(), LocalDate.now().plusDays(7).toEpochDay()),
         period,
     ) { schedule, activities, completions, overrides, periodDays ->
-        compute(schedule, activities, completions, overrides, periodDays)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsState())
-
-    private fun compute(
-        schedule: ScheduleEntity?,
-        acts: List<ActivityEntity>,
-        completions: List<CompletionEntity>,
-        overrides: List<OverrideEntity>,
-        periodDays: Int,
-    ): StatsState {
-        val today = LocalDate.now()
-        val nowMin = nowMinuteOfDay()
-        // Solo cuentan las actividades que el usuario sigue (las fijas, como comer, no)
-        @Suppress("NAME_SHADOWING")
-        val acts = acts.filter { it.tracked }
-        val doneSet = completions.map { it.activityId to it.epochDay }.toHashSet()
-
-        /** Actividades que ya tocaban ese día (sin las canceladas; hoy, solo las que ya han empezado). */
-        fun plannedOn(date: LocalDate): List<ActivityEntity> =
-            Planner.plan(date, acts, overrides)
-                .filter { !it.skipped && (date < today || it.start <= nowMin) }
-                .map { it.activity }
-
-        // Periodo elegido (7 o 28 días hasta hoy)
-        var planned = 0
-        var done = 0
-        val perPlanned = HashMap<Long, Int>()
-        val perDone = HashMap<Long, Int>()
-        for (i in 0 until periodDays) {
-            val date = today.minusDays(i.toLong())
-            val epoch = date.toEpochDay()
-            for (a in plannedOn(date)) {
-                planned++
-                perPlanned[a.id] = (perPlanned[a.id] ?: 0) + 1
-                if ((a.id to epoch) in doneSet) {
-                    done++
-                    perDone[a.id] = (perDone[a.id] ?: 0) + 1
-                }
-            }
-        }
-
-        // Semana actual, de lunes a domingo
-        val monday = today.with(DayOfWeek.MONDAY)
-        val week = (0..6).map { d ->
-            val date = monday.plusDays(d.toLong())
-            if (date > today) {
-                DayStat(d, Planner.plan(date, acts, overrides).count { !it.skipped }, 0, isToday = false, isFuture = true)
-            } else {
-                val pl = plannedOn(date)
-                DayStat(
-                    day = d,
-                    planned = pl.size,
-                    done = pl.count { (it.id to date.toEpochDay()) in doneSet },
-                    isToday = date == today,
-                    isFuture = false,
-                )
-            }
-        }
-
-        // Racha: días seguidos (hacia atrás) con todo hecho. Hoy no rompe la racha si aún no está completo.
-        var streak = 0
-        if (acts.isNotEmpty()) {
-            var date = today
-            for (i in 0 until 400) {
-                val pl = plannedOn(date)
-                if (pl.isNotEmpty()) {
-                    val allDone = pl.all { (it.id to date.toEpochDay()) in doneSet }
-                    if (allDone) streak++ else if (date != today) break
-                }
-                date = date.minusDays(1)
-            }
-        }
-
-        // Actividades con el mismo nombre (p. ej. «Trabajo» de mañana y de tarde) se suman en una fila
-        val perActivity = acts
-            .groupBy { it.title.trim().lowercase() to it.emoji }
-            .values
-            .map { group ->
-                ActivityStat(
-                    activity = group.first(),
-                    planned = group.sumOf { perPlanned[it.id] ?: 0 },
-                    done = group.sumOf { perDone[it.id] ?: 0 },
-                    weeklyMinutes = group.filter { it.onDate == null }.sumOf { (it.endMinute - it.startMinute) * Integer.bitCount(it.daysMask) },
-                )
-            }
-            .filter { it.weeklyMinutes > 0 || it.planned > 0 } // las de un solo día, solo si caen en el periodo
-            .sortedByDescending { it.weeklyMinutes }
-
-        return StatsState(
+        StatsState(
             loading = false,
             schedule = schedule,
-            periodDays = periodDays,
-            planned = planned,
-            done = done,
-            streak = streak,
-            weeklyMinutes = perActivity.sumOf { it.weeklyMinutes },
-            week = week,
-            perActivity = perActivity,
+            result = if (schedule == null) null else StatsCalculator.compute(
+                today = LocalDate.now(),
+                nowMinute = nowMinuteOfDay(),
+                allActs = activities,
+                completions = completions,
+                overrides = overrides,
+                periodDays = periodDays,
+            ),
+            anyTracked = activities.any { it.tracked },
             anyCompletion = completions.isNotEmpty(),
         )
+    }
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StatsState())
+
+    /** CSV del último año del horario activo (para «Exportar»). */
+    suspend fun exportCsv(): String? {
+        val today = LocalDate.now()
+        val from = today.minusDays(364)
+        val (acts, completions, overrides) = repo.statsSnapshot(from.toEpochDay(), today.toEpochDay()) ?: return null
+        return StatsCalculator.csv(from, today, acts, completions, overrides)
     }
 
     companion object {

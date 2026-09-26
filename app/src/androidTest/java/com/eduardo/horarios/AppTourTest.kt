@@ -1,6 +1,9 @@
 package com.eduardo.horarios
 
+import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
@@ -162,13 +165,28 @@ class AppTourTest {
             compose.waitFor(hasText(s(R.string.tpl_student), substring = true))
             shot("14_horarios")
 
+            // ---------- Progreso ----------
             compose.clickFirst(tab(s(R.string.tab_progress)))
-            compose.waitFor(hasText(s(R.string.stats_this_week).uppercase()))
+            compose.waitFor(hasText(s(R.string.stats_week_hours).uppercase()))
+            compose.waitFor(hasTestTag("week_total"))
             shot("15_progreso")
+            // «Estudiar» (lunes a jueves) se marcó el lunes: 1 de 4 esta semana, meta 3
+            compose.waitFor(hasText(s(R.string.stats_habit_week, 1, 4, 3)))
+            compose.waitFor(hasTestTag("heatmap"))
+            compose.onNode(hasTestTag("heatmap")).performScrollTo()
+            shot("15b_progreso_constancia")
+            compose.onNode(hasTestTag("period_90")).performScrollTo().performClick()
+            compose.onNode(hasTestTag("export_csv")).performScrollTo()
+            shot("15c_progreso_habitos")
 
             compose.clickFirst(tab(s(R.string.tab_settings)))
             compose.waitFor(hasText(s(R.string.settings_about).uppercase()))
             shot("16_ajustes")
+
+            // Resumen semanal: desactivado por defecto; se activa con su interruptor
+            val weeklySwitch = hasAnyAncestor(hasTestTag("toggle_weekly_summary")) and isToggleable()
+            compose.onNode(weeklySwitch).performScrollTo().assertIsOff().performClick()
+            compose.onNode(weeklySwitch).assertIsOn()
 
             // ---------- Ajustes → Avanzado → Diagnóstico ----------
             compose.onNode(hasTestTag("open_diagnostics")).performScrollTo()

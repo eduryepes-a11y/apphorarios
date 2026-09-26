@@ -106,7 +106,18 @@ class HorariosRepository(
 
     /** Borra cambios puntuales de hace más de un mes. */
     suspend fun cleanOldOverrides() {
-        overrideDao.deleteOlderThan(LocalDate.now().minusDays(35).toEpochDay())
+        // Se guarda un año de historia para las estadísticas (retrasos, saltos, días libres)
+        overrideDao.deleteOlderThan(LocalDate.now().minusDays(400).toEpochDay())
+    }
+
+    /** Datos del horario activo para estadísticas fuera de las pantallas (resumen semanal, CSV). */
+    suspend fun statsSnapshot(fromDay: Long, toDay: Long): Triple<List<ActivityEntity>, List<CompletionEntity>, List<OverrideEntity>>? {
+        val s = scheduleDao.getActive() ?: return null
+        return Triple(
+            activityDao.getForSchedule(s.id),
+            completionDao.getRange(fromDay, toDay),
+            overrideDao.getRange(s.id, fromDay, toDay),
+        )
     }
 
     // ---------- Plantillas y alta rápida ----------

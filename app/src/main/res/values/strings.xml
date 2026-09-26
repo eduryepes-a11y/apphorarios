@@ -229,18 +229,12 @@
     <string name="import_invalid_title">Archivo no válido</string>
     <string name="import_invalid_text">Este archivo no es un horario ni una copia de seguridad de Horarios.</string>
     <string name="stats_no_schedule">Activa un horario para ver tus estadísticas.</string>
-    <string name="stats_7_days">Últimos 7 días</string>
-    <string name="stats_28_days">Últimos 28 días</string>
+    <string name="stats_7_days">7 días</string>
+    <string name="stats_28_days">28 días</string>
     <string name="stats_completion">Cumplido</string>
     <string name="stats_done_of">%1$d de %2$d</string>
-    <string name="stats_streak">Racha</string>
-    <string name="stats_weekly_hours">Por semana</string>
-    <string name="stats_scheduled">programado</string>
     <string name="stats_hint">Marca las actividades como hechas con el ✓ (en la lista del día o desde la notificación) y aquí verás tu progreso.</string>
-    <string name="stats_this_week">Esta semana</string>
-    <string name="stats_by_activity">Por actividad</string>
     <string name="stats_no_activities">Ninguna actividad cuenta en Progreso. Actívalo en cada actividad con «Seguir en Progreso».</string>
-    <string name="stats_per_week">%1$s por semana</string>
     <string name="tab_today">Hoy</string>
     <string name="tab_week">Semana</string>
     <string name="tab_schedules">Horarios</string>
@@ -323,6 +317,33 @@
     <string name="track_off_text">Actividad fija (comer, dormir, clase…): no cuenta en Progreso.</string>
     <string name="settings_advanced">Avanzado</string>
     <string name="diag_entry_title">Diagnóstico de avisos</string>
+    <string name="stats_90_days">90 días</string>
+    <string name="stats_week_hours">Tu semana en horas</string>
+    <string name="stats_vs_last_week_more">%1$s más que la semana pasada</string>
+    <string name="stats_vs_last_week_less">%1$s menos que la semana pasada</string>
+    <string name="stats_vs_last_week_same">Igual que la semana pasada</string>
+    <string name="stats_other">Otras</string>
+    <string name="stats_happened">Lo que pasó</string>
+    <string name="stats_delays">Retrasos</string>
+    <string name="stats_delays_avg">media %1$s</string>
+    <string name="stats_no_delays">ninguno</string>
+    <string name="stats_skipped">Saltadas</string>
+    <string name="stats_days_off">Días libres</string>
+    <string name="stats_consistency">Constancia</string>
+    <string name="stats_less">Menos</string>
+    <string name="stats_more">Más</string>
+    <string name="stats_habits">Tus hábitos</string>
+    <string name="stats_habit_week">Esta semana: %1$d de %2$d · meta %3$d</string>
+    <string name="stats_export">Exportar a CSV</string>
+    <string name="stats_export_done">Exportado ✓</string>
+    <string name="stats_export_error">No se ha podido exportar</string>
+    <string name="stats_export_text">Todo lo del último año (actividades, hechas, saltadas y retrasos) en una hoja de cálculo.</string>
+    <string name="weekly_summary_title">Resumen semanal</string>
+    <string name="weekly_summary_text">El domingo a las 19:00, un aviso con tu semana: horas, hábitos cumplidos y retrasos.</string>
+    <string name="summary_channel_name">Resumen semanal</string>
+    <string name="summary_title">Tu semana en Horarios 📊</string>
+    <string name="summary_text">%1$s de actividades · hábitos %2$d de %3$d · %4$s</string>
+    <string name="summary_no_delays">sin retrasos</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>
@@ -345,11 +366,6 @@
         <item quantity="one">%d actividad</item>
         <item quantity="many">%d actividades</item>
         <item quantity="other">%d actividades</item>
-    </plurals>
-    <plurals name="days_count">
-        <item quantity="one">%d día</item>
-        <item quantity="many">%d días</item>
-        <item quantity="other">%d días</item>
     </plurals>
     <plurals name="delete_schedule_text">
         <item quantity="one">Se borrará también su actividad. No se puede deshacer.</item>
@@ -385,5 +401,20 @@
         <item quantity="one">%d actividad añadida ✓</item>
         <item quantity="many">%d actividades añadidas ✓</item>
         <item quantity="other">%d actividades añadidas ✓</item>
+    </plurals>
+    <plurals name="stats_last_days">
+        <item quantity="one">en el último día</item>
+        <item quantity="many">en los últimos %d días</item>
+        <item quantity="other">en los últimos %d días</item>
+    </plurals>
+    <plurals name="stats_streak_weeks">
+        <item quantity="one">🔥 %d semana</item>
+        <item quantity="many">🔥 %d semanas</item>
+        <item quantity="other">🔥 %d semanas</item>
+    </plurals>
+    <plurals name="summary_delays">
+        <item quantity="one">%d día con retraso</item>
+        <item quantity="many">%d días con retraso</item>
+        <item quantity="other">%d días con retraso</item>
     </plurals>
 </resources>

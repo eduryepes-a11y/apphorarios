@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.BuildConfig
+import com.eduardo.horarios.alarm.WeeklySummary
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.rounded.Build
 import com.eduardo.horarios.R
@@ -97,6 +98,7 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
     var alarmMode by remember { mutableStateOf(app.scheduler.alarmClockMode) }
     var startAlerts by remember { mutableStateOf(app.scheduler.startAlerts) }
+    var weeklySummary by remember { mutableStateOf(WeeklySummary.isEnabled(context)) }
 
     val exportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -290,6 +292,16 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                     alarmMode = it
                     scope.launch { app.scheduler.rescheduleAll() }
                 },
+            )
+            ToggleCard(
+                title = stringResource(R.string.weekly_summary_title),
+                text = stringResource(R.string.weekly_summary_text),
+                checked = weeklySummary,
+                onChange = {
+                    WeeklySummary.setEnabled(context, it)
+                    weeklySummary = it
+                },
+                modifier = Modifier.testTag("toggle_weekly_summary"),
             )
 
             // ---------- Acerca de ----------
