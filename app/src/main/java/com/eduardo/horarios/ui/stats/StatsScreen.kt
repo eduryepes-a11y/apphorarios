@@ -41,6 +41,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import java.time.format.TextStyle
+import com.eduardo.horarios.longDate
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
@@ -388,8 +394,37 @@ private fun ConsistencyCard(r: StatsResult, empty: Boolean) {
             return@Card
         }
 
-        // 7 filas (L…D) × 12 semanas
+        // Explicación corta: sin ella el calendario no se entiende a la primera
+        Text(
+            stringResource(R.string.stats_heatmap_help),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(10.dp))
+
+        // 7 filas (L…D) × 12 semanas, con el mes encima de la semana en que empieza
         val weeks = r.heatmap.chunked(7)
+        var selected by remember { mutableStateOf<DayCell?>(null) }
+        val locale = LocalConfiguration.current.locales[0]
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+            Spacer(Modifier.width(14.dp))
+            weeks.forEachIndexed { i, week ->
+                val month = week.first().date.month
+                val showMonth = i == 0 || weeks[i - 1].first().date.month != month
+                Box(Modifier.weight(1f)) {
+                    if (showMonth) {
+                        Text(
+                            month.getDisplayName(TextStyle.SHORT, locale).trimEnd('.'),
+                            style = MaterialTheme.typography.labelSmall.copy(letterSpacing = 0.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            softWrap = false,
+                        )
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(2.dp))
         Row(Modifier.fillMaxWidth().testTag("heatmap"), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 for (d in 0..6) {
@@ -405,11 +440,30 @@ private fun ConsistencyCard(r: StatsResult, empty: Boolean) {
             }
             weeks.forEach { week ->
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    week.forEach { cell -> HeatCell(cell, primary) }
+                    week.forEach { cell ->
+                        HeatCell(cell, primary, selected = cell.date == selected?.date) {
+                            selected = if (selected?.date == cell.date) null else cell
+                        }
+                    }
                 }
             }
         }
         Spacer(Modifier.height(8.dp))
+
+        // Detalle del día tocado (o una pista para tocar)
+        val sel = selected
+        Text(
+            when {
+                sel == null -> stringResource(R.string.stats_heatmap_tap)
+                sel.future -> stringResource(R.string.stats_day_future, longDate(context, sel.date))
+                sel.planned == 0 -> stringResource(R.string.stats_day_none, longDate(context, sel.date))
+                else -> stringResource(R.string.stats_day_detail, longDate(context, sel.date), sel.done, sel.planned)
+            },
+            style = if (sel == null) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
+            color = if (sel == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.testTag("heat_detail"),
+        )
+        Spacer(Modifier.height(6.dp))
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.align(Alignment.End)) {
             Text(stringResource(R.string.stats_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.width(4.dp))
@@ -429,11 +483,16 @@ private fun ConsistencyCard(r: StatsResult, empty: Boolean) {
 }
 
 @Composable
-private fun HeatCell(cell: DayCell, primary: Color) {
+private fun HeatCell(cell: DayCell, primary: Color, selected: Boolean, onClick: () -> Unit) {
     val color = when {
         cell.future -> Color.Transparent
         cell.planned == 0 || cell.done == 0 -> MaterialTheme.colorScheme.surfaceVariant
         else -> primary.copy(alpha = 0.25f + 0.75f * cell.ratio)
+    }
+    val borderColor = when {
+        selected -> MaterialTheme.colorScheme.onSurface
+        cell.future -> MaterialTheme.colorScheme.outlineVariant
+        else -> Color.Transparent
     }
     Box(
         Modifier
@@ -441,10 +500,9 @@ private fun HeatCell(cell: DayCell, primary: Color) {
             .height(18.dp)
             .clip(RoundedCornerShape(4.dp))
             .background(color)
-            .then(
-                if (cell.future) Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(4.dp))
-                else Modifier
-            ),
+            .border(if (selected) 2.dp else 1.dp, borderColor, RoundedCornerShape(4.dp))
+            .clickable(onClick = onClick)
+            .testTag("heat_${cell.date.toEpochDay()}"),
     )
 }
 

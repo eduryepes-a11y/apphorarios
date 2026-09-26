@@ -331,6 +331,11 @@
     <string name="stats_skipped">Skipped</string>
     <string name="stats_days_off">Days off</string>
     <string name="stats_consistency">Consistency</string>
+    <string name="stats_heatmap_help">Each square is a day (each column, a week). The more colour, the more habits you did that day.</string>
+    <string name="stats_heatmap_tap">Tap a day to see the details.</string>
+    <string name="stats_day_detail">%1$s: %2$d of %3$d habits done</string>
+    <string name="stats_day_none">%1$s: no habits that day</string>
+    <string name="stats_day_future">%1$s: not here yet</string>
     <string name="stats_less">Less</string>
     <string name="stats_more">More</string>
     <string name="stats_habits">Your habits</string>

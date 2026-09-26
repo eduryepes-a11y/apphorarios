@@ -331,6 +331,11 @@
     <string name="stats_skipped">Saltadas</string>
     <string name="stats_days_off">Días libres</string>
     <string name="stats_consistency">Constancia</string>
+    <string name="stats_heatmap_help">Cada cuadrado es un día (cada columna, una semana). Cuanto más color, más hábitos hiciste ese día.</string>
+    <string name="stats_heatmap_tap">Toca un día para ver el detalle.</string>
+    <string name="stats_day_detail">%1$s: %2$d de %3$d hábitos hechos</string>
+    <string name="stats_day_none">%1$s: no tocaba ningún hábito</string>
+    <string name="stats_day_future">%1$s: aún no ha llegado</string>
     <string name="stats_less">Menos</string>
     <string name="stats_more">Más</string>
     <string name="stats_habits">Tus hábitos</string>

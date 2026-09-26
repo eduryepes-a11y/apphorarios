@@ -181,6 +181,11 @@ class AppTourTest {
             compose.waitFor(hasText(s(R.string.stats_habit_week, 1, 4)))
             compose.waitFor(hasTestTag("heatmap"))
             compose.onNode(hasTestTag("heatmap")).performScrollTo()
+            // Tocar el lunes de esta semana muestra su detalle debajo del calendario
+            compose.waitFor(hasText(s(R.string.stats_heatmap_tap)))
+            compose.onNode(hasTestTag("heat_${monday.toEpochDay()}")).performClick()
+            compose.waitFor(hasText(longDate(T.localizedContext(), monday), substring = true))
+            compose.waitGone(hasText(s(R.string.stats_heatmap_tap)))
             shot("15b_progreso_constancia")
             compose.onNode(hasTestTag("period_90")).performScrollTo().performClick()
             compose.onNode(hasTestTag("export_csv")).performScrollTo()
