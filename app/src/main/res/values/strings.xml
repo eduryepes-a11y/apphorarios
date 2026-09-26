@@ -43,7 +43,7 @@
     <string name="date_header_pattern">EEEE, d \'de\' MMMM</string>
     <string name="my_schedules">Mis horarios</string>
     <string name="settings">Ajustes</string>
-    <string name="stats">Estadísticas</string>
+    <string name="stats">Progreso</string>
     <string name="no_schedule">Sin horario</string>
     <string name="change_schedule">Cambiar horario</string>
     <string name="start_here">EMPIEZA AQUÍ</string>
@@ -403,9 +403,9 @@
         <item quantity="other">%d actividades añadidas ✓</item>
     </plurals>
     <plurals name="stats_last_days">
-        <item quantity="one">en el último día</item>
-        <item quantity="many">en los últimos %d días</item>
-        <item quantity="other">en los últimos %d días</item>
+        <item quantity="one">en 1 día</item>
+        <item quantity="many">en %d días</item>
+        <item quantity="other">en %d días</item>
     </plurals>
     <plurals name="stats_streak_weeks">
         <item quantity="one">🔥 %d semana</item>

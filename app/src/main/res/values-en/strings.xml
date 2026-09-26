@@ -43,7 +43,7 @@
     <string name="date_header_pattern">EEEE, MMMM d</string>
     <string name="my_schedules">My schedules</string>
     <string name="settings">Settings</string>
-    <string name="stats">Statistics</string>
+    <string name="stats">Progress</string>
     <string name="no_schedule">No schedule</string>
     <string name="change_schedule">Change schedule</string>
     <string name="start_here">START HERE</string>
@@ -395,8 +395,8 @@
         <item quantity="other">%d activities added ✓</item>
     </plurals>
     <plurals name="stats_last_days">
-        <item quantity="one">in the last day</item>
-        <item quantity="other">in the last %d days</item>
+        <item quantity="one">in 1 day</item>
+        <item quantity="other">in %d days</item>
     </plurals>
     <plurals name="stats_streak_weeks">
         <item quantity="one">🔥 %d week</item>
