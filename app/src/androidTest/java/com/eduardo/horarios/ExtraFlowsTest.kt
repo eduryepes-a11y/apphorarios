@@ -185,8 +185,8 @@ class ExtraFlowsTest {
         val today = LocalDate.now().toEpochDay()
         val (normalId, holidaysId) = runBlocking {
             T.onMain { T.app.settings.setOnboarded() }
-            val n = repo.createSchedule("Clases", "📚", 0)
-            val h = repo.createSchedule("Vacaciones", "🏖️", 2)
+            val n = repo.createSchedule("Clases", "📚", 0)!!
+            val h = repo.createSchedule("Vacaciones", "🏖️", 2)!!
             n to h
         }
         runBlocking {
