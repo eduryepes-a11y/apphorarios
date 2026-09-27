@@ -159,11 +159,15 @@ class ExtraFlowsTest {
         }
         T.launch(compose, "fechas", language = "es") {
             compose.clickFirst(T.tab(s(R.string.tab_schedules)))
-            compose.waitFor(hasTestTag("auto_range_$holidaysId"))
+            // La etiqueta se funde con la tarjeta (pulsable), así que se busca por su texto
+            val range = "📅 " + shortRange(T.localizedContext(), LocalDate.ofEpochDay(today - 1), LocalDate.ofEpochDay(today + 5))
+            compose.waitFor(hasText(range, substring = true))
             T.shot(compose, "fechas_1_tarjeta")
             compose.clickFirst(hasTestTag("schedule_menu_$holidaysId"))
             compose.clickFirst(hasTestTag("menu_auto_dates"))
             compose.waitFor(hasTestTag("auto_dates_text"))
+            // La cabecera muestra las fechas guardadas, cortas
+            compose.waitFor(hasTestTag("auto_dates_headline") and hasText(range.removePrefix("📅 ")))
             T.shot(compose, "fechas_2_dialogo")
             compose.clickFirst(hasText(s(R.string.cancel)))
             compose.waitGone(hasTestTag("auto_dates_text"))

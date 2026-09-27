@@ -33,6 +33,7 @@ import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.rememberDateRangePickerState
 import androidx.compose.ui.platform.testTag
 import com.eduardo.horarios.shortRange
+import com.eduardo.horarios.shortDay
 import java.time.LocalDate
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
@@ -531,6 +532,22 @@ private fun AutoRangeDialog(
                         modifier = Modifier.testTag("auto_dates_text"),
                     )
                 }
+            },
+            headline = {
+                // La cabecera por defecto («Fecha de inicio - Fecha de finalización») no cabe en español
+                val context = LocalContext.current
+                val start = state.selectedStartDateMillis?.let { LocalDate.ofEpochDay(Math.floorDiv(it, 86_400_000L)) }
+                val end = state.selectedEndDateMillis?.let { LocalDate.ofEpochDay(Math.floorDiv(it, 86_400_000L)) }
+                Text(
+                    when {
+                        start != null && end != null -> shortRange(context, start, end)
+                        start != null -> shortDay(context, start) + " – …"
+                        else -> stringResource(R.string.auto_dates_pick)
+                    },
+                    style = MaterialTheme.typography.headlineSmall,
+                    maxLines = 1,
+                    modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 12.dp).testTag("auto_dates_headline"),
+                )
             },
             showModeToggle = true,
             modifier = Modifier.weight(1f),
