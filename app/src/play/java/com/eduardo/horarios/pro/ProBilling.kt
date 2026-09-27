@@ -2,6 +2,7 @@ package com.eduardo.horarios.pro
 
 import android.app.Activity
 import android.content.Context
+import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
@@ -13,71 +14,67 @@ import com.android.billingclient.api.Purchase
 import com.android.billingclient.api.PurchasesUpdatedListener
 import com.android.billingclient.api.QueryProductDetailsParams
 import com.android.billingclient.api.QueryPurchasesParams
-import com.android.billingclient.api.acknowledgePurchase
-import com.android.billingclient.api.queryProductDetails
-import com.android.billingclient.api.queryPurchasesAsync
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 
 /**
- * Variante Google Play: suscripción mensual «Horarios Pro» (1,49 €/mes con 7 días gratis; el precio y
- * la prueba se configuran en Play Console). Comprueba la suscripción al abrir la app y al volver a ella.
+ * Variante Google Play: suscripción mensual «Horarios Pro».
+ * El precio (1,49 €/mes) y la prueba de 7 días se configuran en Play Console, en la suscripción
+ * [PRODUCT_ID] (plan base mensual + oferta de prueba gratis). Aquí solo se lee lo que diga Google.
+ *
+ * - Al abrir la app y al volver a ella se consulta si hay suscripción activa ([refresh]).
+ * - Si Google Play no contesta, se mantiene lo último que se supo (no se bloquea a quien paga).
+ * - Las compras se confirman (acknowledge): si no, Google las devuelve a los 3 días.
+ *
+ * Usa Play Billing Library 8 con las funciones de siempre (con «listener»), sin extensiones de Kotlin.
  */
 object ProBilling : PurchasesUpdatedListener {
-    /** Id del producto de suscripción en Play Console. */
+    /** Id de la suscripción en Play Console. */
     const val PRODUCT_ID = "horarios_pro"
     const val canPurchase = true
+    private const val TAG = "HorariosPro"
 
     private val _offer = MutableStateFlow<ProOffer?>(null)
     val offer: StateFlow<ProOffer?> = _offer
     private val _status = MutableStateFlow(StoreStatus.CONNECTING)
     val status: StateFlow<StoreStatus> = _status
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var appContext: Context
     private var client: BillingClient? = null
-    private var details: ProductDetails? = null
-    private var retries = 0
+    @Volatile private var details: ProductDetails? = null
+    @Volatile private var connecting = false
 
     fun init(context: Context) {
         appContext = context.applicationContext
         client = BillingClient.newBuilder(appContext)
             .setListener(this)
             .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
+            // Si Google Play corta la conexión, la librería se vuelve a conectar sola
+            .enableAutoServiceReconnection()
             .build()
         connect()
     }
 
     private fun connect() {
         val c = client ?: return
+        if (connecting) return
+        connecting = true
         _status.value = StoreStatus.CONNECTING
         c.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
+                connecting = false
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) {
-                    retries = 0
                     _status.value = StoreStatus.READY
                     refresh()
                 } else {
+                    Log.w(TAG, "Sin conexión con Google Play: ${result.responseCode} ${result.debugMessage}")
                     _status.value = StoreStatus.UNAVAILABLE
                 }
             }
 
             override fun onBillingServiceDisconnected() {
+                connecting = false
                 _status.value = StoreStatus.UNAVAILABLE
-                // Reintenta con espera creciente (1 s, 2 s, 4 s… hasta 1 min)
-                if (retries < 6) {
-                    val wait = 1000L shl retries
-                    retries++
-                    scope.launch {
-                        delay(wait)
-                        connect()
-                    }
-                }
             }
         })
     }
@@ -86,31 +83,41 @@ object ProBilling : PurchasesUpdatedListener {
     fun refresh() {
         val c = client ?: return
         if (!c.isReady) {
-            if (_status.value != StoreStatus.CONNECTING) connect()
+            connect()
             return
         }
-        scope.launch {
-            val purchases = c.queryPurchasesAsync(
-                QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()
-            )
-            if (purchases.billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
-                handle(purchases.purchasesList)
+        // 1. ¿Hay suscripción activa?
+        c.queryPurchasesAsync(
+            QueryPurchasesParams.newBuilder().setProductType(BillingClient.ProductType.SUBS).build()
+        ) { result, purchases ->
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                handle(purchases)
+            } else {
+                // Sin respuesta fiable: se mantiene lo último que se supo
+                Log.w(TAG, "No se pudo consultar la suscripción: ${result.responseCode} ${result.debugMessage}")
             }
-            val result = c.queryProductDetails(
-                QueryProductDetailsParams.newBuilder().setProductList(
-                    listOf(
-                        QueryProductDetailsParams.Product.newBuilder()
-                            .setProductId(PRODUCT_ID)
-                            .setProductType(BillingClient.ProductType.SUBS)
-                            .build()
-                    )
-                ).build()
-            )
-            details = result.productDetailsList?.firstOrNull()
-            _offer.value = details?.let(::toOffer)
+        }
+        // 2. Precio y prueba gratis, para la hoja de Pro
+        c.queryProductDetailsAsync(
+            QueryProductDetailsParams.newBuilder().setProductList(
+                listOf(
+                    QueryProductDetailsParams.Product.newBuilder()
+                        .setProductId(PRODUCT_ID)
+                        .setProductType(BillingClient.ProductType.SUBS)
+                        .build()
+                )
+            ).build()
+        ) { result, queryResult ->
+            if (result.responseCode == BillingClient.BillingResponseCode.OK) {
+                val d = queryResult.productDetailsList.firstOrNull { it.productId == PRODUCT_ID }
+                details = d
+                _offer.value = d?.let(::toOffer)
+                if (d == null) Log.w(TAG, "La suscripción $PRODUCT_ID no está en Play Console (o no está activa)")
+            }
         }
     }
 
+    /** La oferta con prueba gratis si el usuario puede usarla (Google solo devuelve las que le tocan); si no, el plan base. */
     private fun bestOffer(d: ProductDetails): ProductDetails.SubscriptionOfferDetails? =
         ProRules.pickOffer(d.subscriptionOfferDetails.orEmpty()) { o ->
             o.pricingPhases.pricingPhaseList.any { it.priceAmountMicros == 0L }
@@ -121,18 +128,7 @@ object ProBilling : PurchasesUpdatedListener {
         val phases = o.pricingPhases.pricingPhaseList
         val paid = phases.lastOrNull { it.priceAmountMicros > 0 } ?: return null
         val trial = phases.firstOrNull { it.priceAmountMicros == 0L }
-        return ProOffer(price = paid.formattedPrice, trialDays = trial?.let { trialDays(it.billingPeriod) } ?: 0)
-    }
-
-    /** «P7D» → 7, «P1W» → 7, «P1M» → 30. */
-    private fun trialDays(period: String): Int {
-        val m = Regex("""P(\d+)([DWM])""").matchEntire(period) ?: return 0
-        val n = m.groupValues[1].toInt()
-        return when (m.groupValues[2]) {
-            "D" -> n
-            "W" -> n * 7
-            else -> n * 30
-        }
+        return ProOffer(price = paid.formattedPrice, trialDays = trial?.let { ProRules.periodDays(it.billingPeriod) } ?: 0)
     }
 
     /** Abre la compra de Google Play. Devuelve false si aún no se puede (sin conexión o sin producto). */
@@ -150,26 +146,41 @@ object ProBilling : PurchasesUpdatedListener {
                 )
             )
             .build()
-        return c.launchBillingFlow(activity, params).responseCode == BillingClient.BillingResponseCode.OK
+        val result = c.launchBillingFlow(activity, params)
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+            Log.w(TAG, "No se pudo abrir la compra: ${result.responseCode} ${result.debugMessage}")
+        }
+        return result.responseCode == BillingClient.BillingResponseCode.OK
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<Purchase>?) {
-        if (result.responseCode == BillingClient.BillingResponseCode.OK && purchases != null) {
-            scope.launch { handle(purchases) }
+        when (result.responseCode) {
+            BillingClient.BillingResponseCode.OK -> if (purchases != null) handle(purchases)
+            // Ya la tenía (por ejemplo, comprada en otro móvil): se vuelve a leer
+            BillingClient.BillingResponseCode.ITEM_ALREADY_OWNED -> refresh()
+            else -> Unit // cancelada por el usuario o error: no cambia nada
         }
     }
 
-    private suspend fun handle(purchases: List<Purchase>) {
+    private fun handle(purchases: List<Purchase>) {
         val c = client ?: return
-        val mine = purchases.filter { PRODUCT_ID in it.products }
-        val active = mine.any { it.purchaseState == Purchase.PurchaseState.PURCHASED }
-        // Google cancela la compra si no se confirma en 3 días
-        for (p in mine) {
-            if (p.purchaseState == Purchase.PurchaseState.PURCHASED && !p.isAcknowledged) {
-                c.acknowledgePurchase(AcknowledgePurchaseParams.newBuilder().setPurchaseToken(p.purchaseToken).build())
+        val info = purchases.map {
+            ProRules.PurchaseInfo(
+                products = it.products,
+                purchased = it.purchaseState == Purchase.PurchaseState.PURCHASED,
+                acknowledged = it.isAcknowledged,
+            )
+        }
+        for (i in ProRules.needsAcknowledge(info, PRODUCT_ID)) {
+            c.acknowledgePurchase(
+                AcknowledgePurchaseParams.newBuilder().setPurchaseToken(purchases[i].purchaseToken).build()
+            ) { r ->
+                if (r.responseCode != BillingClient.BillingResponseCode.OK) {
+                    Log.w(TAG, "No se pudo confirmar la compra (se reintenta al volver a la app): ${r.responseCode}")
+                }
             }
         }
-        Pro.update(appContext, active)
+        Pro.update(appContext, ProRules.isEntitled(info, PRODUCT_ID))
     }
 
     /** Página de Google Play para gestionar o cancelar la suscripción. */

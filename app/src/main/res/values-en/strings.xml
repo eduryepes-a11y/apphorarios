@@ -399,8 +399,8 @@
     <string name="pro_buy">Go Pro</string>
     <string name="pro_try_free">Try %1$d days free</string>
     <string name="pro_subscribe">Subscribe for %1$s a month</string>
-    <string name="pro_price_after_trial">%1$d days free, then %2$s a month. Cancel anytime from Google Play.</string>
-    <string name="pro_price_monthly">%1$s a month. Cancel anytime from Google Play.</string>
+    <string name="pro_price_after_trial">%1$d days free, then %2$s a month, renewing automatically. Cancel before the trial ends and you pay nothing. Cancel anytime in Google Play.</string>
+    <string name="pro_price_monthly">%1$s a month, renewing automatically. Cancel anytime in Google Play.</string>
     <string name="pro_connecting">Connecting to Google Play…</string>
     <string name="pro_store_unavailable">Can’t connect to Google Play right now. Please try again later.</string>
     <string name="pro_not_now">Not now</string>

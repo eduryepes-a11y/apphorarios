@@ -281,6 +281,39 @@ class ProFlowsTest {
         }
     }
 
+    /** Pro se acaba con la app abierta; desde el aviso se vuelve a Pro y todo sigue igual. */
+    @Test
+    fun seAcabaProConLaAppAbiertaYSeRenueva() {
+        setPro(true)
+        T.onMain { T.app.settings.setOnboarded() }
+        runBlocking {
+            repo.createSchedule("Uno", "1️⃣", 0)
+            repo.createSchedule("Dos", "2️⃣", 1)
+            repo.createSchedule("Tres", "3️⃣", 2)
+        }
+        T.launch(compose, "pro_renovar", language = "es") {
+            compose.waitFor(tab(s(R.string.tab_today)))
+            // Termina la suscripción mientras se usa la app
+            setPro(false)
+            compose.waitFor(hasText(s(R.string.pro_choice_title)))
+            // «Volver a Pro» abre la hoja de Pro encima del aviso
+            compose.clickFirst(hasText(s(R.string.pro_back_to_pro)))
+            compose.waitFor(hasTestTag("paywall"))
+            compose.waitFor(hasText(s(R.string.pro_r_locked)))
+            T.shot(compose, "pro_8_volver_a_pro")
+            // Se renueva: la hoja y el aviso se cierran solos
+            setPro(true)
+            compose.waitGone(hasTestTag("paywall"))
+            compose.waitGone(hasText(s(R.string.pro_choice_title)))
+        }
+        runBlocking {
+            val st = repo.currentFreeState()
+            assertTrue(st.locked.isEmpty())
+            assertFalse(st.needsChoice)
+            assertEquals(3, T.app.database.scheduleDao().getAll().size)
+        }
+    }
+
     @Test
     fun hojaProEnIngles() {
         setPro(false)

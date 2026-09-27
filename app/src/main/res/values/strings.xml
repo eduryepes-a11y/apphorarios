@@ -399,8 +399,8 @@
     <string name="pro_buy">Hazte Pro</string>
     <string name="pro_try_free">Prueba %1$d días gratis</string>
     <string name="pro_subscribe">Suscribirme por %1$s al mes</string>
-    <string name="pro_price_after_trial">%1$d días gratis y después %2$s al mes. Cancela cuando quieras desde Google Play.</string>
-    <string name="pro_price_monthly">%1$s al mes. Cancela cuando quieras desde Google Play.</string>
+    <string name="pro_price_after_trial">%1$d días gratis y después %2$s al mes, con renovación automática. Si cancelas antes de que acabe la prueba, no pagas nada. Cancela cuando quieras en Google Play.</string>
+    <string name="pro_price_monthly">%1$s al mes, con renovación automática. Cancela cuando quieras en Google Play.</string>
     <string name="pro_connecting">Conectando con Google Play…</string>
     <string name="pro_store_unavailable">Ahora no se puede conectar con Google Play. Inténtalo más tarde.</string>
     <string name="pro_not_now">Ahora no</string>

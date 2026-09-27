@@ -102,7 +102,8 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.glance.appwidget)
     // Suscripción Horarios Pro (solo en la variante de Google Play)
-    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
+    // Versión 8: Google Play no acepta apps con la 7 desde el 31/08/2026 (la 8 vale hasta el 31/08/2027)
+    "playImplementation"("com.android.billingclient:billing:8.3.0")
     debugImplementation(libs.androidx.ui.tooling)
 
     // Pruebas en el ordenador (lógica pura)

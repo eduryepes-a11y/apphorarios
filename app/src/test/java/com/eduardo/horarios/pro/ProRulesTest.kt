@@ -141,4 +141,41 @@ class ProRulesTest {
         assertEquals("base", ProRules.pickOffer(listOf(O("base", false))) { it.trial }?.name)
         assertNull(ProRules.pickOffer(emptyList<O>()) { it.trial })
     }
+
+    @Test
+    fun trialPeriodsFromGooglePlay() {
+        assertEquals(7, ProRules.periodDays("P7D"))
+        assertEquals(7, ProRules.periodDays("P1W"))
+        assertEquals(14, ProRules.periodDays("P2W"))
+        assertEquals(30, ProRules.periodDays("P1M"))
+        assertEquals(365, ProRules.periodDays("P1Y"))
+        assertEquals(0, ProRules.periodDays(""))
+        assertEquals(0, ProRules.periodDays("P1M2D")) // formato raro: mejor no inventar
+    }
+
+    @Test
+    fun onlyPaidPurchasesOfOurProductGivePro() {
+        val id = "horarios_pro"
+        val paid = ProRules.PurchaseInfo(listOf(id), purchased = true, acknowledged = true)
+        val pending = ProRules.PurchaseInfo(listOf(id), purchased = false, acknowledged = false)
+        val other = ProRules.PurchaseInfo(listOf("otra_app"), purchased = true, acknowledged = false)
+        assertTrue(ProRules.isEntitled(listOf(paid), id))
+        assertFalse(ProRules.isEntitled(emptyList(), id))
+        // Un pago pendiente (por ejemplo, en efectivo) todavía no da Pro
+        assertFalse(ProRules.isEntitled(listOf(pending), id))
+        assertFalse(ProRules.isEntitled(listOf(other), id))
+        assertTrue(ProRules.isEntitled(listOf(pending, paid), id))
+    }
+
+    @Test
+    fun paidPurchasesAreAcknowledgedOnce() {
+        val id = "horarios_pro"
+        val list = listOf(
+            ProRules.PurchaseInfo(listOf(id), purchased = true, acknowledged = false), // hay que confirmarla
+            ProRules.PurchaseInfo(listOf(id), purchased = true, acknowledged = true), // ya confirmada
+            ProRules.PurchaseInfo(listOf(id), purchased = false, acknowledged = false), // pendiente: aún no
+            ProRules.PurchaseInfo(listOf("otra"), purchased = true, acknowledged = false), // no es nuestra
+        )
+        assertEquals(listOf(0), ProRules.needsAcknowledge(list, id))
+    }
 }

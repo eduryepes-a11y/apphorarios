@@ -113,6 +113,29 @@ object ProRules {
     fun fallbackActive(state: FreeState, schedules: List<ScheduleEntity>): Long? =
         schedules.sortedBy { it.createdAt }.firstOrNull { !state.isLocked(it.id) }?.id
 
+    /** Días de un periodo de Google Play: «P7D» → 7, «P1W» → 7, «P1M» → 30, «P1Y» → 365. 0 si no se entiende. */
+    fun periodDays(period: String): Int {
+        val m = Regex("""P(\d+)([DWMY])""").matchEntire(period.trim()) ?: return 0
+        val n = m.groupValues[1].toInt()
+        return when (m.groupValues[2]) {
+            "D" -> n
+            "W" -> n * 7
+            "M" -> n * 30
+            else -> n * 365
+        }
+    }
+
+    /** Una compra, con lo que importa para saber si da Pro. */
+    data class PurchaseInfo(val products: List<String>, val purchased: Boolean, val acknowledged: Boolean)
+
+    /** ¿Alguna compra comprada (no pendiente) de [productId] da Pro? */
+    fun isEntitled(purchases: List<PurchaseInfo>, productId: String): Boolean =
+        purchases.any { productId in it.products && it.purchased }
+
+    /** Compras de [productId] ya pagadas que aún hay que confirmar (Google las anula a los 3 días si no). */
+    fun needsAcknowledge(purchases: List<PurchaseInfo>, productId: String): List<Int> =
+        purchases.mapIndexedNotNull { i, p -> if (productId in p.products && p.purchased && !p.acknowledged) i else null }
+
     /** Oferta con la que se lanza la compra: la que tiene prueba gratis (fase a 0) si la hay; si no, la primera. */
     fun <T> pickOffer(offers: List<T>, hasFreePhase: (T) -> Boolean): T? =
         offers.firstOrNull(hasFreePhase) ?: offers.firstOrNull()
