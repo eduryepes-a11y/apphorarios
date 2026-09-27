@@ -6,9 +6,25 @@ import java.time.LocalDate
 /** Actividad de un solo día (no se repite cada semana). */
 val ActivityEntity.isOneOff: Boolean get() = onDate != null
 
+/**
+ * Semanas alternas A/B. Las semanas van de lunes a domingo y se numeran desde el lunes
+ * 5 de enero de 1970 (epochDay 4), que es semana A. Así la letra de cada semana nunca cambia.
+ */
+object WeekParity {
+    const val EVERY = 0
+    const val A = 1
+    const val B = 2
+
+    fun weekIndex(date: LocalDate): Long = Math.floorDiv(date.toEpochDay() - 4, 7L)
+
+    /** [A] o [B] según la semana de [date]. */
+    fun of(date: LocalDate): Int = if (Math.floorMod(weekIndex(date), 2L) == 0L) A else B
+}
+
 /** ¿Toca esta actividad en [date]? */
 fun ActivityEntity.occursOn(date: LocalDate): Boolean =
-    onDate?.let { it == date.toEpochDay() } ?: daysMask.hasDay(date.dayOfWeek.value - 1)
+    onDate?.let { it == date.toEpochDay() }
+        ?: (daysMask.hasDay(date.dayOfWeek.value - 1) && (weekParity == WeekParity.EVERY || weekParity == WeekParity.of(date)))
 
 /** Días de la semana (0 = lunes) en los que puede tocar: el de su fecha si es de un solo día. */
 fun ActivityEntity.weekDays(): List<Int> =

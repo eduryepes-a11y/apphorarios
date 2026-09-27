@@ -73,3 +73,13 @@ fun longDate(context: Context, date: LocalDate): String {
     return date.format(java.time.format.DateTimeFormatter.ofPattern(context.getString(R.string.date_header_pattern), locale))
         .replaceFirstChar { it.titlecase(locale) }
 }
+
+/** «1 ago – 15 ago» (con el año si no es el actual), en el idioma de [context]. */
+fun shortRange(context: Context, from: LocalDate, to: LocalDate): String {
+    val locale = context.resources.configuration.locales[0] ?: java.util.Locale.getDefault()
+    val thisYear = LocalDate.now().year
+    fun fmt(d: LocalDate) = d.format(
+        java.time.format.DateTimeFormatter.ofPattern(if (d.year == thisYear) "d MMM" else "d MMM yyyy", locale)
+    ).replace(".", "")
+    return "${fmt(from)} – ${fmt(to)}"
+}

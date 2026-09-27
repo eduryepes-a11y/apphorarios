@@ -27,6 +27,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DateRangePicker
+import androidx.compose.material3.rememberDateRangePickerState
+import androidx.compose.ui.platform.testTag
+import com.eduardo.horarios.shortRange
+import java.time.LocalDate
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.MoreVert
@@ -124,6 +131,7 @@ class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
     fun duplicate(s: ScheduleEntity) = viewModelScope.launch { repo.duplicateSchedule(s) }
     fun delete(s: ScheduleEntity) = viewModelScope.launch { repo.deleteSchedule(s) }
     fun createFromTemplate(t: ScheduleTemplate) = viewModelScope.launch { repo.createFromTemplate(t, activate = false) }
+    fun setAutoRange(s: ScheduleEntity, from: Long?, to: Long?) = viewModelScope.launch { repo.setAutoRange(s.id, from, to) }
     fun share(context: Context, s: ScheduleEntity) = viewModelScope.launch { BackupIO.shareSchedule(context, repo, s) }
 
     companion object {
@@ -155,6 +163,7 @@ fun SchedulesScreen(
     var creating by remember { mutableStateOf(false) }
     var choosingTemplate by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<ScheduleEntity?>(null) }
+    var dating by remember { mutableStateOf<ScheduleEntity?>(null) }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -216,6 +225,7 @@ fun SchedulesScreen(
                     onEdit = { editing = s },
                     onDuplicate = { vm.duplicate(s) },
                     onShare = { vm.share(context, s) },
+                    onDates = { dating = s },
                     onDelete = { deleting = s },
                     modifier = Modifier.animateItem(),
                 )
@@ -280,6 +290,24 @@ fun SchedulesScreen(
             },
         )
     }
+    dating?.let { s ->
+        AutoRangeDialog(
+            schedule = s,
+            onDismiss = { dating = null },
+            onSave = { from, to ->
+                vm.setAutoRange(s, from, to)
+                dating = null
+                if (from != null && to != null) {
+                    val msg = context.getString(
+                        R.string.auto_dates_saved,
+                        s.name,
+                        shortRange(context, LocalDate.ofEpochDay(from), LocalDate.ofEpochDay(to)),
+                    )
+                    scope.launch { snackbar.showSnackbar(msg) }
+                }
+            },
+        )
+    }
     deleting?.let { s ->
         val n = state.counts[s.id] ?: 0
         AlertDialog(
@@ -305,9 +333,11 @@ private fun ScheduleCard(
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
     onShare: () -> Unit,
+    onDates: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val context = LocalContext.current
     val color = paletteColor(schedule.colorIndex)
     var menu by remember { mutableStateOf(false) }
 
@@ -345,6 +375,14 @@ private fun ScheduleCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (schedule.hasAutoRange) {
+                    Text(
+                        "📅 " + shortRange(context, LocalDate.ofEpochDay(schedule.autoFrom!!), LocalDate.ofEpochDay(schedule.autoTo!!)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.testTag("auto_range_${schedule.id}"),
+                    )
+                }
                 if (schedule.isActive) {
                     Spacer(Modifier.height(6.dp))
                     Pill(stringResource(R.string.active_badge), color)
@@ -356,7 +394,7 @@ private fun ScheduleCard(
                 colors = RadioButtonDefaults.colors(selectedColor = color),
             )
             Box {
-                IconButton(onClick = { menu = true }) {
+                IconButton(onClick = { menu = true }, modifier = Modifier.testTag("schedule_menu_${schedule.id}")) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
@@ -369,6 +407,12 @@ private fun ScheduleCard(
                         text = { Text(stringResource(R.string.share)) },
                         leadingIcon = { Icon(Icons.Rounded.Share, null) },
                         onClick = { menu = false; onShare() },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.auto_dates_menu)) },
+                        leadingIcon = { Icon(Icons.Rounded.DateRange, null) },
+                        onClick = { menu = false; onDates() },
+                        modifier = Modifier.testTag("menu_auto_dates"),
                     )
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.duplicate)) },
@@ -433,3 +477,63 @@ private fun ScheduleDialog(
     )
 }
 
+
+/** Elegir las fechas en que este horario se activa solo. */
+@Composable
+private fun AutoRangeDialog(
+    schedule: ScheduleEntity,
+    onDismiss: () -> Unit,
+    onSave: (from: Long?, to: Long?) -> Unit,
+) {
+    fun toMillis(epochDay: Long?) = epochDay?.let { it * 86_400_000L }
+    val state = rememberDateRangePickerState(
+        initialSelectedStartDateMillis = toMillis(schedule.autoFrom),
+        initialSelectedEndDateMillis = toMillis(schedule.autoTo),
+    )
+    DatePickerDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(
+                        Math.floorDiv(state.selectedStartDateMillis!!, 86_400_000L),
+                        Math.floorDiv(state.selectedEndDateMillis!!, 86_400_000L),
+                    )
+                },
+                enabled = state.selectedStartDateMillis != null && state.selectedEndDateMillis != null,
+                modifier = Modifier.testTag("auto_dates_save"),
+            ) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = {
+            Row {
+                if (schedule.hasAutoRange) {
+                    TextButton(
+                        onClick = { onSave(null, null) },
+                        modifier = Modifier.testTag("auto_dates_clear"),
+                    ) { Text(stringResource(R.string.auto_dates_clear), color = MaterialTheme.colorScheme.error) }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+        },
+    ) {
+        DateRangePicker(
+            state = state,
+            title = {
+                Column(Modifier.padding(start = 24.dp, end = 16.dp, top = 16.dp)) {
+                    Text(
+                        stringResource(R.string.auto_dates_title, "${schedule.emoji} ${schedule.name}"),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        stringResource(R.string.auto_dates_text),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.testTag("auto_dates_text"),
+                    )
+                }
+            },
+            showModeToggle = true,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}

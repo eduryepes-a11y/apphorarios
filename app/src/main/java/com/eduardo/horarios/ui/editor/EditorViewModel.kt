@@ -15,6 +15,7 @@ import com.eduardo.horarios.R
 import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.Tracking
+import com.eduardo.horarios.data.WeekParity
 import java.time.LocalDate
 import com.eduardo.horarios.todayIndex
 import kotlinx.coroutines.launch
@@ -34,6 +35,8 @@ data class EditorForm(
     val tracked: Boolean = true,
     /** El usuario ha tocado el interruptor: ya no lo cambiamos al escribir el nombre. */
     val trackedTouched: Boolean = false,
+    /** Semanas alternas: 0 = todas, 1 = solo semanas A, 2 = solo semanas B (ver [WeekParity]). */
+    val weekParity: Int = WeekParity.EVERY,
 )
 
 class EditorViewModel(
@@ -77,6 +80,7 @@ class EditorViewModel(
                         date = a.onDate?.let { LocalDate.ofEpochDay(it) } ?: form.date,
                         tracked = a.tracked,
                         trackedTouched = true,
+                        weekParity = a.weekParity,
                     )
                 }
             }
@@ -135,6 +139,7 @@ class EditorViewModel(
                     reminderMinutes = f.reminderMinutes,
                     onDate = if (f.oneOff) f.date.toEpochDay() else null,
                     tracked = f.tracked,
+                    weekParity = if (f.oneOff) WeekParity.EVERY else f.weekParity,
                 )
             )
             onDone()

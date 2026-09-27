@@ -10,9 +10,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 
 private const val KEY_TRACKING_DEFAULTS = "tracking_defaults_v13"
+private const val SWITCH_PREFS = "auto_switch"
+private const val KEY_LAST_DAY = "last_day"
+private const val KEY_BASE_ID = "base_id"
 
 class HorariosRepository(
     private val context: Context,
@@ -23,6 +28,8 @@ class HorariosRepository(
     private val activityDao = db.activityDao()
     private val completionDao = db.completionDao()
     private val overrideDao = db.overrideDao()
+    private val switchPrefs = context.getSharedPreferences(SWITCH_PREFS, Context.MODE_PRIVATE)
+    private val switchMutex = Mutex()
 
     val schedules: Flow<List<ScheduleEntity>> = scheduleDao.observeAll()
     val activeSchedule: Flow<ScheduleEntity?> = scheduleDao.observeActive()
@@ -157,6 +164,46 @@ class HorariosRepository(
         scheduler.rescheduleAll()
     }
 
+    // ---------- Fechas automáticas ----------
+
+    /** Horario «de siempre» al que se vuelve cuando termina un periodo con fechas. */
+    private fun savedBaseId(): Long? =
+        if (switchPrefs.contains(KEY_BASE_ID)) switchPrefs.getLong(KEY_BASE_ID, 0) else null
+
+    private suspend fun applySwitch(d: SwitchDecision, today: Long) {
+        switchPrefs.edit().apply {
+            putLong(KEY_LAST_DAY, today)
+            if (d.baseId == null) remove(KEY_BASE_ID) else putLong(KEY_BASE_ID, d.baseId)
+        }.apply()
+        d.activateId?.let { activate(it) }
+    }
+
+    /**
+     * Una vez al día (al abrir la app, al encender el móvil y a las 00:01): si empieza o termina
+     * un periodo con fechas, cambia el horario activo. Devuelve true si ha cambiado.
+     */
+    suspend fun runAutoSwitch(today: Long = LocalDate.now().toEpochDay()): Boolean = switchMutex.withLock {
+        val last = if (switchPrefs.contains(KEY_LAST_DAY)) switchPrefs.getLong(KEY_LAST_DAY, 0) else null
+        if (last == today) return@withLock false
+        val all = scheduleDao.getAll()
+        val d = ScheduleSwitcher.onNewDay(last, today, all, all.firstOrNull { it.isActive }?.id, savedBaseId())
+        applySwitch(d, today)
+        d.activateId != null
+    }
+
+    /** Pone (o quita, con null) las fechas automáticas de un horario. Si ya cubren hoy, se activa ya. */
+    suspend fun setAutoRange(scheduleId: Long, from: Long?, to: Long?): Unit = switchMutex.withLock {
+        val today = LocalDate.now().toEpochDay()
+        val before = scheduleDao.getAll()
+        val s = before.firstOrNull { it.id == scheduleId } ?: return@withLock
+        val (f, t) = if (from == null || to == null) null to null else minOf(from, to) to maxOf(from, to)
+        scheduleDao.update(s.copy(autoFrom = f, autoTo = t))
+        val after = scheduleDao.getAll()
+        val d = ScheduleSwitcher.onRangesChanged(today, before, after, after.firstOrNull { it.isActive }?.id, savedBaseId())
+        applySwitch(d, today)
+        WidgetRefresher.refresh(context)
+    }
+
     suspend fun createSchedule(name: String, emoji: String, colorIndex: Int): Long {
         val isFirst = scheduleDao.count() == 0
         val id = scheduleDao.insert(
@@ -179,6 +226,9 @@ class HorariosRepository(
                     name = context.localized().getString(R.string.schedule_copy_name, schedule.name),
                     isActive = false,
                     createdAt = System.currentTimeMillis(),
+                    // Las fechas no se copian: dos horarios no pueden mandar a la vez
+                    autoFrom = null,
+                    autoTo = null,
                 )
             )
             val copies = activityDao.getForSchedule(schedule.id).map { it.copy(id = 0, scheduleId = newId) }
@@ -254,6 +304,8 @@ class HorariosRepository(
             emoji = schedule.emoji,
             colorIndex = schedule.colorIndex,
             isActive = schedule.isActive,
+            autoFrom = if (withDone) schedule.autoFrom else null,
+            autoTo = if (withDone) schedule.autoTo else null,
             activities = activityDao.getForSchedule(schedule.id).map { a ->
                 ActivityExport(
                     title = a.title,
@@ -266,6 +318,7 @@ class HorariosRepository(
                     reminderMinutes = a.reminderMinutes,
                     onDate = a.onDate,
                     tracked = a.tracked,
+                    weekParity = a.weekParity,
                     doneDays = if (withDone) completionDao.getForActivity(a.id).map { it.epochDay } else emptyList(),
                 )
             },
@@ -288,7 +341,14 @@ class HorariosRepository(
             file.schedules.forEachIndexed { index, s ->
                 val name = if (!replace && scheduleDao.getAll().any { it.name == s.name }) "${s.name} (2)" else s.name
                 val id = scheduleDao.insert(
-                    ScheduleEntity(name = name, emoji = s.emoji, colorIndex = s.colorIndex, isActive = false)
+                    ScheduleEntity(
+                        name = name,
+                        emoji = s.emoji,
+                        colorIndex = s.colorIndex,
+                        isActive = false,
+                        autoFrom = s.autoFrom,
+                        autoTo = s.autoTo,
+                    )
                 )
                 if (activateId == null && ((replace && s.isActive) || (!hadSchedules && index == 0))) activateId = id
                 for (a in s.activities) {
@@ -305,6 +365,7 @@ class HorariosRepository(
                             reminderMinutes = a.reminderMinutes,
                             onDate = a.onDate,
                             tracked = a.tracked,
+                            weekParity = a.weekParity,
                         )
                     )
                     if (a.doneDays.isNotEmpty()) {

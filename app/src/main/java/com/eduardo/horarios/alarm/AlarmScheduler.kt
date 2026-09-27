@@ -15,6 +15,7 @@ import com.eduardo.horarios.data.Planner
 import java.time.LocalDate
 import com.eduardo.horarios.data.occursOn
 import com.eduardo.horarios.data.weekDays
+import com.eduardo.horarios.data.WeekParity
 import com.eduardo.horarios.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -249,12 +250,13 @@ class AlarmScheduler(
                 val millis = LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
                 return if (millis > after) millis else NO_ALARM.toLong()
             }
-            if (overrides.isEmpty()) return nextTrigger(day, triggerMinute(activity, kind), after)
+            val alternate = activity.weekParity != WeekParity.EVERY
+            if (overrides.isEmpty() && !alternate) return nextTrigger(day, triggerMinute(activity, kind), after)
             val zone = ZoneId.systemDefault()
             val base = Instant.ofEpochMilli(after).atZone(zone).toLocalDate()
             for (offset in -1L..42L) {
                 val date = base.plusDays(offset)
-                if (date.dayOfWeek.value - 1 != day) continue
+                if (date.dayOfWeek.value - 1 != day || !activity.occursOn(date)) continue
                 val o = Planner.overridesFor(date.toEpochDay(), overrides)
                 if (Planner.isSkipped(activity.id, o)) continue
                 val start = Planner.shiftedStart(activity.startMinute, o)
@@ -262,6 +264,8 @@ class AlarmScheduler(
                 val millis = date.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
                 if (millis > after) return millis
             }
+            // Semanas alternas: si todas las de las próximas semanas están saltadas, ya se programará más adelante
+            if (alternate) return NO_ALARM.toLong()
             return nextTrigger(day, triggerMinute(activity, kind), after)
         }
 

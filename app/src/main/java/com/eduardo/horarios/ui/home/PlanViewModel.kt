@@ -63,6 +63,8 @@ data class PlanState(
     val overrides: List<OverrideEntity> = emptyList(),
 ) {
     fun plan(d: LocalDate): List<PlannedActivity> = Planner.plan(d, activities, overrides)
+    /** Hay actividades de semanas alternas: se muestra si la semana es A o B. */
+    val usesAlternateWeeks: Boolean get() = activities.any { it.weekParity != 0 && it.onDate == null }
     fun dayOverrides(d: LocalDate): DayOverrides = Planner.overridesFor(d.toEpochDay(), overrides)
     fun isDone(p: PlannedActivity): Boolean = (p.activity.id to p.epochDay) in done
     val isCurrentWeek: Boolean get() = weekStart == LocalDate.now().with(DayOfWeek.MONDAY)

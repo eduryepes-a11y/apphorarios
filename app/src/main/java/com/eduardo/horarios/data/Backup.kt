@@ -16,6 +16,7 @@ data class ActivityExport(
     val doneDays: List<Long> = emptyList(),
     val onDate: Long? = null,
     val tracked: Boolean = true,
+    val weekParity: Int = 0,
 )
 
 data class ScheduleExport(
@@ -24,6 +25,8 @@ data class ScheduleExport(
     val colorIndex: Int,
     val isActive: Boolean,
     val activities: List<ActivityExport>,
+    val autoFrom: Long? = null,
+    val autoTo: Long? = null,
 )
 
 /** Contenido de un archivo .json de Horarios. */
@@ -69,6 +72,7 @@ object BackupFormat {
                     .put("reminderMinutes", a.reminderMinutes)
                     .put("tracked", a.tracked)
                 a.onDate?.let { o.put("onDate", it) }
+                if (a.weekParity != 0) o.put("weekParity", a.weekParity)
                 if (a.doneDays.isNotEmpty()) o.put("doneDays", JSONArray(a.doneDays))
                 acts.put(o)
             }
@@ -79,6 +83,12 @@ object BackupFormat {
                     .put("colorIndex", s.colorIndex)
                     .put("isActive", s.isActive)
                     .put("activities", acts)
+                    .apply {
+                        if (s.autoFrom != null && s.autoTo != null) {
+                            put("autoFrom", s.autoFrom)
+                            put("autoTo", s.autoTo)
+                        }
+                    }
             )
         }
         root.put("schedules", arr)
@@ -123,6 +133,7 @@ object BackupFormat {
                     doneDays = done,
                     onDate = if (a.has("onDate")) a.optLong("onDate") else null,
                     tracked = a.optBoolean("tracked", Tracking.defaultTracked(title)),
+                    weekParity = a.optInt("weekParity", 0).takeIf { it in 0..2 } ?: 0,
                 )
             }
             schedules += ScheduleExport(
@@ -131,6 +142,8 @@ object BackupFormat {
                 colorIndex = s.optInt("colorIndex", 0).coerceIn(0, 9),
                 isActive = s.optBoolean("isActive", false),
                 activities = acts,
+                autoFrom = if (s.has("autoFrom") && s.has("autoTo")) s.optLong("autoFrom") else null,
+                autoTo = if (s.has("autoFrom") && s.has("autoTo")) s.optLong("autoTo") else null,
             )
         }
         if (schedules.isEmpty()) throw InvalidFileException()

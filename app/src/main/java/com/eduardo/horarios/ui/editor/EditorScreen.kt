@@ -82,6 +82,8 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.ui.platform.testTag
 import com.eduardo.horarios.longDate
 import java.time.Instant
+import java.time.LocalDate
+import com.eduardo.horarios.data.WeekParity
 import java.time.ZoneOffset
 import com.eduardo.horarios.R
 import androidx.compose.ui.res.stringResource
@@ -210,13 +212,37 @@ fun EditorScreen(
 
             Column {
                 SectionLabel(stringResource(R.string.repeat))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChoiceChip(stringResource(R.string.repeat_weekly), !form.oneOff, accent, Modifier.testTag("repeat_weekly")) {
-                        vm.update { copy(oneOff = false) }
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoiceChip(stringResource(R.string.repeat_weekly), !form.oneOff && form.weekParity == WeekParity.EVERY, accent, Modifier.testTag("repeat_weekly")) {
+                        vm.update { copy(oneOff = false, weekParity = WeekParity.EVERY) }
+                    }
+                    ChoiceChip(stringResource(R.string.repeat_alternate), !form.oneOff && form.weekParity != WeekParity.EVERY, accent, Modifier.testTag("repeat_alternate")) {
+                        // Por defecto, la semana en la que se está mirando (la de la fecha elegida)
+                        vm.update { copy(oneOff = false, weekParity = if (weekParity == WeekParity.EVERY) WeekParity.of(date) else weekParity) }
                     }
                     ChoiceChip(stringResource(R.string.repeat_once), form.oneOff, accent, Modifier.testTag("repeat_once")) {
                         vm.update { copy(oneOff = true) }
                     }
+                }
+                if (!form.oneOff && form.weekParity != WeekParity.EVERY) {
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        ChoiceChip(stringResource(R.string.week_a), form.weekParity == WeekParity.A, accent, Modifier.testTag("week_a")) {
+                            vm.update { copy(weekParity = WeekParity.A) }
+                        }
+                        ChoiceChip(stringResource(R.string.week_b), form.weekParity == WeekParity.B, accent, Modifier.testTag("week_b")) {
+                            vm.update { copy(weekParity = WeekParity.B) }
+                        }
+                    }
+                    Text(
+                        stringResource(
+                            R.string.week_parity_hint,
+                            stringResource(if (WeekParity.of(LocalDate.now()) == WeekParity.A) R.string.week_letter_a else R.string.week_letter_b),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp).testTag("week_parity_hint"),
+                    )
                 }
                 Spacer(Modifier.height(12.dp))
                 if (form.oneOff) {
@@ -431,6 +457,9 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
                 )
                 Text(
                     (if (form.oneOff) longDate(context, form.date) else daysSummary(context, form.daysMask)) +
+                        (if (!form.oneOff && form.weekParity != WeekParity.EVERY) {
+                            " · " + context.getString(if (form.weekParity == WeekParity.A) R.string.week_a else R.string.week_b)
+                        } else "") +
                         " · " + reminderChipLabel(context, form.reminderMinutes),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.8f),

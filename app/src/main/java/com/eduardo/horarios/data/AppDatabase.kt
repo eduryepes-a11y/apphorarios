@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ScheduleEntity::class, ActivityEntity::class, CompletionEntity::class, OverrideEntity::class],
-    version = 4,
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -62,8 +62,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v4 → v5: fechas automáticas de los horarios y semanas alternas. */
+        private val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `schedules` ADD COLUMN `autoFrom` INTEGER")
+                db.execSQL("ALTER TABLE `schedules` ADD COLUMN `autoTo` INTEGER")
+                db.execSQL("ALTER TABLE `activities` ADD COLUMN `weekParity` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** Todas las migraciones, en orden (también las usan las pruebas). */
-        val MIGRATIONS: Array<Migration> get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        val MIGRATIONS: Array<Migration> get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {

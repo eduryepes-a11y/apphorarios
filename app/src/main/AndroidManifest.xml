@@ -66,6 +66,10 @@
             android:name=".alarm.WeeklySummaryReceiver"
             android:exported="false" />
 
+        <receiver
+            android:name=".alarm.DailyReceiver"
+            android:exported="false" />
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.files"

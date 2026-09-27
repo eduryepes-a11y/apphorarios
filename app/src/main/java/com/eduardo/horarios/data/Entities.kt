@@ -15,7 +15,12 @@ data class ScheduleEntity(
     val colorIndex: Int,
     val isActive: Boolean = false,
     val createdAt: Long = System.currentTimeMillis(),
-)
+    /** Fechas automáticas (epochDay, ambas incluidas): entre ellas este horario se activa solo. */
+    val autoFrom: Long? = null,
+    val autoTo: Long? = null,
+) {
+    val hasAutoRange: Boolean get() = autoFrom != null && autoTo != null
+}
 
 /**
  * Una actividad que se repite en uno o varios días de la semana.
@@ -50,6 +55,8 @@ data class ActivityEntity(
     val onDate: Long? = null,
     /** Si cuenta en Progreso (se puede marcar como hecha). Las fijas, como comer o dormir, no. */
     @ColumnInfo(defaultValue = "1") val tracked: Boolean = true,
+    /** Semanas alternas: 0 = todas las semanas, 1 = solo semanas A, 2 = solo semanas B. */
+    @ColumnInfo(defaultValue = "0") val weekParity: Int = 0,
 )
 
 data class ScheduleCount(

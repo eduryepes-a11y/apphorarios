@@ -67,6 +67,15 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.BuildConfig
 import com.eduardo.horarios.alarm.WeeklySummary
+import android.content.Context
+import android.net.Uri
+import android.provider.DocumentsContract
+import androidx.compose.material3.AlertDialog
+import com.eduardo.horarios.data.AutoBackup
+import com.eduardo.horarios.data.AutoBackupFiles
+import com.eduardo.horarios.longDate
+import java.io.File
+import java.time.LocalDate
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material.icons.rounded.Build
 import com.eduardo.horarios.R
@@ -271,6 +280,8 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                 }
             }
 
+            AutoBackupSection()
+
             // ---------- Avisos (lo que usa todo el mundo) ----------
             SectionLabel(stringResource(R.string.notifications_title), Modifier.padding(top = 8.dp))
             ToggleCard(
@@ -399,3 +410,179 @@ private fun ThemeSegment(
         Text(label, style = MaterialTheme.typography.labelMedium, color = fg)
     }
 }
+
+/** Copia automática diaria: activar, carpeta extra opcional y restaurar una de las últimas. */
+@Composable
+private fun AutoBackupSection() {
+    val context = LocalContext.current
+    val app = context.applicationContext as HorariosApp
+    var enabled by remember { mutableStateOf(AutoBackup.isEnabled(context)) }
+    var folder by remember { mutableStateOf(AutoBackup.folder(context)) }
+    var folderError by remember { mutableStateOf(AutoBackup.folderError(context)) }
+    var copies by remember { mutableStateOf(AutoBackup.list(context)) }
+    var choosing by remember { mutableStateOf(false) }
+    var restoring by remember { mutableStateOf<File?>(null) }
+
+    fun refresh() {
+        copies = AutoBackup.list(context)
+        folderError = AutoBackup.folderError(context)
+    }
+
+    fun backupNow(force: Boolean) {
+        app.appScope.launch {
+            runCatching { AutoBackup.runIfDue(context, app.repository, force = force) }
+            withContext(Dispatchers.Main) { refresh() }
+        }
+    }
+
+    val folderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null) {
+            AutoBackup.setFolder(context, uri)
+            folder = uri
+            backupNow(force = true)
+        }
+    }
+
+    ToggleCard(
+        title = stringResource(R.string.auto_backup_title),
+        text = stringResource(R.string.auto_backup_text, AutoBackupFiles.KEEP),
+        checked = enabled,
+        onChange = {
+            AutoBackup.setEnabled(context, it)
+            enabled = it
+            if (it) backupNow(force = false)
+        },
+        modifier = Modifier.testTag("toggle_auto_backup"),
+    )
+    if (enabled) {
+        SettingsCard {
+            Text(stringResource(R.string.auto_backup_folder_title), style = MaterialTheme.typography.titleSmall)
+            Text(
+                folder?.let { stringResource(R.string.auto_backup_folder_set, folderLabel(it), AutoBackup.FOLDER_FILE) }
+                    ?: stringResource(R.string.auto_backup_folder_none),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.testTag("auto_backup_folder"),
+            )
+            if (folder != null && folderError) {
+                Text(
+                    stringResource(R.string.auto_backup_folder_error),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(
+                    onClick = { folderLauncher.launch(null) },
+                    shape = RoundedCornerShape(14.dp),
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(if (folder == null) R.string.auto_backup_folder_pick else R.string.auto_backup_folder_change)) }
+                if (folder != null) {
+                    TextButton(onClick = {
+                        AutoBackup.setFolder(context, null)
+                        folder = null
+                    }) { Text(stringResource(R.string.auto_backup_folder_remove)) }
+                }
+            }
+        }
+    }
+    Surface(
+        onClick = {
+            refresh()
+            choosing = true
+        },
+        color = MaterialTheme.colorScheme.surface,
+        shape = RoundedCornerShape(20.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = Modifier.fillMaxWidth().testTag("restore_auto"),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.auto_backup_restore), style = MaterialTheme.typography.titleSmall)
+                Text(
+                    copies.firstOrNull()?.let { f ->
+                        stringResource(R.string.auto_backup_last, backupDateLabel(context, f))
+                    } ?: stringResource(R.string.auto_backup_none_yet),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+
+    if (choosing) {
+        AlertDialog(
+            onDismissRequest = { choosing = false },
+            title = { Text(stringResource(R.string.auto_backup_restore)) },
+            text = {
+                if (copies.isEmpty()) {
+                    Text(stringResource(R.string.auto_backup_none_yet))
+                } else {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        copies.forEachIndexed { i, f ->
+                            Surface(
+                                onClick = {
+                                    choosing = false
+                                    restoring = f
+                                },
+                                shape = RoundedCornerShape(14.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier.fillMaxWidth().testTag("auto_copy_$i"),
+                            ) {
+                                Text(
+                                    backupDateLabel(context, f),
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { choosing = false }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+    restoring?.let { f ->
+        AlertDialog(
+            onDismissRequest = { restoring = null },
+            title = { Text(stringResource(R.string.auto_backup_restore_title, backupDateLabel(context, f))) },
+            text = { Text(stringResource(R.string.auto_backup_restore_text)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        restoring = null
+                        app.appScope.launch {
+                            val ok = runCatching { app.repository.import(AutoBackup.read(f), replace = true) }.isSuccess
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    context.getString(if (ok) R.string.auto_backup_restored else R.string.import_invalid_title),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    },
+                    modifier = Modifier.testTag("confirm_restore"),
+                ) { Text(stringResource(R.string.auto_backup_restore_button), color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { restoring = null }) { Text(stringResource(R.string.cancel)) } },
+        )
+    }
+}
+
+/** «Hoy», «Ayer» o la fecha larga de una copia automática. */
+private fun backupDateLabel(context: Context, file: File): String {
+    val date = AutoBackupFiles.dateOf(file.name) ?: return file.name
+    val today = LocalDate.now()
+    return when (date) {
+        today -> context.getString(R.string.today)
+        today.minusDays(1) -> context.getString(R.string.yesterday)
+        else -> longDate(context, date)
+    }
+}
+
+/** Nombre corto de la carpeta elegida («Download», «Drive/Horarios»…). */
+private fun folderLabel(uri: Uri): String =
+    runCatching { DocumentsContract.getTreeDocumentId(uri).substringAfter(':').ifBlank { "/" } }.getOrDefault(uri.lastPathSegment ?: "")

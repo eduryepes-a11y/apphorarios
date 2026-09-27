@@ -10,6 +10,14 @@ import com.eduardo.horarios.data.BackupFormat
 import com.eduardo.horarios.data.HorariosFile
 import com.eduardo.horarios.data.StatsCalculator
 import com.eduardo.horarios.data.Templates
+import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.data.AutoBackup
+import com.eduardo.horarios.data.AutoBackupFiles
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import org.junit.Assert.assertNotNull
+import java.io.File
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -101,6 +109,14 @@ class ExtraFlowsTest {
                 colorIndex = 2, reminderMinutes = 30, onDate = dentistDay.toEpochDay(), tracked = false,
             )
         )
+        repo.saveActivity(
+            ActivityEntity(
+                scheduleId = scheduleId, title = "Pádel", emoji = "🎾", daysMask = 0b0010000,
+                startMinute = 19 * 60, endMinute = 20 * 60, colorIndex = 3, reminderMinutes = 10, weekParity = WeekParity.B,
+            )
+        )
+        val from = LocalDate.now().plusDays(30).toEpochDay()
+        repo.setAutoRange(scheduleId, from, from + 6)
         val before = repo.getActiveActivities()
 
         // Exportar → texto → leer → importar reemplazando todo
@@ -114,7 +130,92 @@ class ExtraFlowsTest {
         val dentist = after.single { it.title == "Dentista" }
         assertEquals(dentistDay.toEpochDay(), dentist.onDate)
         assertFalse(dentist.tracked)
+        // v1.5: semanas alternas y fechas automáticas
+        assertEquals(WeekParity.B, after.single { it.title == "Pádel" }.weekParity)
+        val restored = repo.getActiveSchedule()!!
+        assertEquals(from, restored.autoFrom)
+        assertEquals(from + 6, restored.autoTo)
         // Las fijas siguen sin contar en Progreso tras la copia
         assertFalse(after.first { it.title == s(R.string.tpl_act_lunch) }.tracked)
+    }
+
+    /** Horario con fechas: se activa solo, vuelve el de siempre al terminar y se ve en la tarjeta. */
+    @Test
+    fun horarioPorFechas() {
+        val today = LocalDate.now().toEpochDay()
+        val (normalId, holidaysId) = runBlocking {
+            T.onMain { T.app.settings.setOnboarded() }
+            val n = repo.createSchedule("Clases", "📚", 0)
+            val h = repo.createSchedule("Vacaciones", "🏖️", 2)
+            n to h
+        }
+        runBlocking {
+            assertEquals(normalId, repo.getActiveSchedule()!!.id)
+            // Unas fechas que ya cubren hoy: se activa en el momento
+            repo.setAutoRange(holidaysId, today - 1, today + 5)
+            assertEquals(holidaysId, repo.getActiveSchedule()!!.id)
+            // El mismo día no vuelve a cambiar nada
+            assertFalse(repo.runAutoSwitch(today))
+        }
+        T.launch(compose, "fechas", language = "es") {
+            compose.clickFirst(T.tab(s(R.string.tab_schedules)))
+            compose.waitFor(hasTestTag("auto_range_$holidaysId"))
+            T.shot(compose, "fechas_1_tarjeta")
+            compose.clickFirst(hasTestTag("schedule_menu_$holidaysId"))
+            compose.clickFirst(hasTestTag("menu_auto_dates"))
+            compose.waitFor(hasTestTag("auto_dates_text"))
+            T.shot(compose, "fechas_2_dialogo")
+            compose.clickFirst(hasText(s(R.string.cancel)))
+            compose.waitGone(hasTestTag("auto_dates_text"))
+        }
+        runBlocking {
+            // Pasado el periodo vuelve «Clases» solo
+            assertTrue(repo.runAutoSwitch(today + 6))
+            assertEquals(normalId, repo.getActiveSchedule()!!.id)
+            // Y al quitar unas fechas que cubren hoy también se vuelve al de siempre
+            repo.setAutoRange(holidaysId, today, today + 2)
+            assertEquals(holidaysId, repo.getActiveSchedule()!!.id)
+            repo.setAutoRange(holidaysId, null, null)
+            assertEquals(normalId, repo.getActiveSchedule()!!.id)
+        }
+    }
+
+    /** Copia automática: se crea, se limpian las viejas y se restaura desde Ajustes. */
+    @Test
+    fun copiaAutomaticaYRestaurar() {
+        val context = T.app
+        runBlocking {
+            T.onMain { T.app.settings.setOnboarded() }
+            repo.createFromTemplate(Templates.first { it.key == "student" }, activate = true)
+        }
+        val count = runBlocking { repo.getActiveActivities().size }
+        assertTrue(AutoBackup.isEnabled(context))
+        // Copias viejas de relleno: solo deben quedar las 7 más recientes
+        val dir = AutoBackup.dir(context).apply { mkdirs() }
+        val today = LocalDate.now()
+        (1L..9L).forEach { File(dir, AutoBackupFiles.nameFor(today.minusDays(it))).writeText("{}") }
+        val file = runBlocking { AutoBackup.runIfDue(context, repo, force = true) }
+        assertNotNull(file)
+        val names = AutoBackup.list(context).map { it.name }
+        assertEquals(AutoBackupFiles.KEEP, names.size)
+        assertEquals(AutoBackupFiles.nameFor(today), names.first())
+        // Sin forzar, el mismo día no se repite
+        assertEquals(null, runBlocking { AutoBackup.runIfDue(context, repo) })
+
+        // Se borra una actividad… y se recupera restaurando la copia de hoy
+        runBlocking { repo.deleteActivity(repo.getActiveActivities().first()) }
+        assertEquals(count - 1, runBlocking { repo.getActiveActivities().size })
+        T.launch(compose, "copia_auto", language = "es") {
+            compose.clickFirst(T.tab(s(R.string.tab_settings)))
+            compose.onNode(hasTestTag("restore_auto")).performScrollTo()
+            compose.waitFor(hasText(s(R.string.auto_backup_last, s(R.string.today))))
+            T.shot(compose, "copia_auto_1_ajustes")
+            compose.onNode(hasTestTag("restore_auto")).performClick()
+            compose.waitFor(hasTestTag("auto_copy_0"))
+            T.shot(compose, "copia_auto_2_lista")
+            compose.clickFirst(hasTestTag("auto_copy_0"))
+            compose.clickFirst(hasTestTag("confirm_restore"))
+            compose.waitUntil(10_000) { runBlocking { repo.getActiveActivities().size } == count }
+        }
     }
 }

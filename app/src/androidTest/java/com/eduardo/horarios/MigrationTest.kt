@@ -43,6 +43,7 @@ class MigrationTest {
                 "`scheduleId` INTEGER NOT NULL, `title` TEXT NOT NULL, `emoji` TEXT NOT NULL, `notes` TEXT NOT NULL, " +
                 "`daysMask` INTEGER NOT NULL, `startMinute` INTEGER NOT NULL, `endMinute` INTEGER NOT NULL, " +
                 "`colorIndex` INTEGER NOT NULL, `reminderMinutes` INTEGER NOT NULL, " +
+                (if (version >= 4) "`onDate` INTEGER, `tracked` INTEGER NOT NULL DEFAULT 1, " else "") +
                 "FOREIGN KEY(`scheduleId`) REFERENCES `schedules`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_activities_scheduleId` ON `activities` (`scheduleId`)")
@@ -66,6 +67,7 @@ class MigrationTest {
             "INSERT INTO activities (id, scheduleId, title, emoji, notes, daysMask, startMinute, endMinute, colorIndex, reminderMinutes) " +
                 "VALUES (1, 1, 'Trabajo', '💼', '', 31, 540, 840, 1, 10)"
         )
+        if (version >= 4) db.execSQL("UPDATE activities SET tracked = 0 WHERE id = 1")
         if (version >= 2) db.execSQL("INSERT INTO completions (activityId, epochDay, completedAt) VALUES (1, 20000, 0)")
         db.version = version
         db.close()
@@ -96,7 +98,17 @@ class MigrationTest {
             db.openHelper.readableDatabase.query("SELECT onDate, tracked FROM activities").use { c ->
                 c.moveToFirst()
                 assertTrue(c.isNull(0))
-                assertEquals(1, c.getInt(1))
+                assertEquals(if (fromVersion >= 4) 0 else 1, c.getInt(1))
+            }
+            // v5: todas las semanas y sin fechas automáticas
+            db.openHelper.readableDatabase.query("SELECT weekParity FROM activities").use { c ->
+                c.moveToFirst()
+                assertEquals(0, c.getInt(0))
+            }
+            db.openHelper.readableDatabase.query("SELECT autoFrom, autoTo FROM schedules").use { c ->
+                c.moveToFirst()
+                assertTrue(c.isNull(0))
+                assertTrue(c.isNull(1))
             }
         } finally {
             db.close()
@@ -111,4 +123,7 @@ class MigrationTest {
 
     @Test
     fun desdeVersion3() = checkUpgraded(3)
+
+    @Test
+    fun desdeVersion4() = checkUpgraded(4)
 }

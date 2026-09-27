@@ -112,6 +112,7 @@ import com.eduardo.horarios.ui.theme.paletteColor
 import com.eduardo.horarios.update.UpdateCard
 import kotlinx.coroutines.delay
 import java.time.LocalDate
+import com.eduardo.horarios.data.WeekParity
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -603,13 +604,16 @@ fun weekRangeLabel(weekStart: LocalDate): String {
 
 /** Flechas para cambiar de semana + botón «Hoy» si no estás en la semana actual. */
 @Composable
-fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifier = Modifier) {
+fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifier = Modifier, showParity: Boolean = false) {
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { DaySelection.moveWeeks(-1) }) {
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_week))
         }
+        val parity = if (showParity) {
+            " · " + stringResource(if (WeekParity.of(weekStart) == WeekParity.A) R.string.week_a else R.string.week_b)
+        } else ""
         Text(
-            if (isCurrentWeek) stringResource(R.string.this_week) else weekRangeLabel(weekStart),
+            (if (isCurrentWeek) stringResource(R.string.this_week) else weekRangeLabel(weekStart)) + parity,
             style = MaterialTheme.typography.titleSmall,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.Center,
@@ -628,7 +632,7 @@ private fun WeekDaySelector(state: PlanState, onSelect: (LocalDate) -> Unit) {
     val context = LocalContext.current
     val today = LocalDate.now()
     Column(Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp)) {
-        WeekNavigator(state.weekStart, state.isCurrentWeek)
+        WeekNavigator(state.weekStart, state.isCurrentWeek, showParity = state.usesAlternateWeeks)
         Row(
             modifier = Modifier
                 .fillMaxWidth()

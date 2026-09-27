@@ -2,6 +2,7 @@ package com.eduardo.horarios
 
 import android.app.Application
 import com.eduardo.horarios.alarm.AlarmScheduler
+import com.eduardo.horarios.alarm.DailyWork
 import com.eduardo.horarios.alarm.Notifications
 import com.eduardo.horarios.alarm.WeeklySummary
 import com.eduardo.horarios.data.AppDatabase
@@ -40,7 +41,8 @@ class HorariosApp : Application() {
         appScope.launch {
             repository.applyTrackingDefaultsOnce()
             repository.cleanOldOverrides()
-            scheduler.rescheduleAll()
+            // Cambio automático de horario, copia del día y avisos
+            DailyWork.run(this@HorariosApp)
             WeeklySummary.schedule(this@HorariosApp)
         }
     }

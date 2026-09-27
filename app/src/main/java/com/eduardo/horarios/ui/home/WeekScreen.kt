@@ -98,6 +98,7 @@ fun WeekScreen(
                     weekStart = state.weekStart,
                     isCurrentWeek = state.isCurrentWeek,
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    showParity = state.usesAlternateWeeks,
                 )
             }
             if (!state.loading && state.schedule == null) {
