@@ -426,7 +426,8 @@ class HorariosRepository(
             val unlockedNormal = if (isPro) 0 else ProRules.evaluate(false, scheduleDao.getAll(), activityDao.getAll())
                 .let { st -> scheduleDao.getAll().count { !st.isLocked(it.id) } }
             val incomingPro = file.schedules.map { s -> s.autoFrom != null || s.activities.any { it.onDate == null && (it.weekParity != 0 || (it.rotStart != null && it.rotOn > 0)) } }
-            val importLocked = ProRules.importLocks(isPro, unlockedNormal, incomingPro)
+            // Los que ya venían bloqueados en la copia tampoco ocupan hueco
+            val importLocked = ProRules.importLocks(isPro, unlockedNormal, incomingPro.mapIndexed { i, pro -> pro || file.schedules[i].freeLocked })
             file.schedules.forEachIndexed { index, s ->
                 val name = if (!replace && scheduleDao.getAll().any { it.name == s.name }) "${s.name} (2)" else s.name
                 val id = scheduleDao.insert(

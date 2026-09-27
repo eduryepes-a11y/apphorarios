@@ -273,6 +273,7 @@ class ProFlowsTest {
             assertFalse(restored.needsChoice)
 
             // Y la copia guarda los bloqueos: restaurarla no desbloquea nada
+            // (y el que ya venía bloqueado no quita hueco a los libres)
             val json = BackupFormat.toJson(HorariosFile.KIND_BACKUP, repo.exportAll())
             assertTrue(json.contains("\"freeLocked\": true"))
             repo.import(BackupFormat.parse(json), replace = true)
