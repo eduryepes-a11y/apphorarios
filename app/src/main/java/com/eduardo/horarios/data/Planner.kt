@@ -7,28 +7,53 @@ import java.time.LocalDate
 val ActivityEntity.isOneOff: Boolean get() = onDate != null
 
 /**
- * Semanas alternas A/B. Las semanas van de lunes a domingo y se numeran desde el lunes
- * 5 de enero de 1970 (epochDay 4), que es semana A. Así la letra de cada semana nunca cambia.
+ * Semanas alternas (A/B, A/B/C, A/B/C/D). Las semanas van de lunes a domingo y se numeran desde
+ * el lunes 5 de enero de 1970 (epochDay 4), que es semana A en todos los ciclos. Así la letra de
+ * cada semana nunca cambia.
  */
 object WeekParity {
     const val EVERY = 0
     const val A = 1
     const val B = 2
+    val CYCLES = 2..4
 
     fun weekIndex(date: LocalDate): Long = Math.floorDiv(date.toEpochDay() - 4, 7L)
 
-    /** [A] o [B] según la semana de [date]. */
-    fun of(date: LocalDate): Int = if (Math.floorMod(weekIndex(date), 2L) == 0L) A else B
+    /** Semana del ciclo de [cycle] semanas en la que cae [date]: 1 = A, 2 = B… */
+    fun of(date: LocalDate, cycle: Int = 2): Int = Math.floorMod(weekIndex(date), cycle.coerceIn(CYCLES).toLong()).toInt() + 1
+
+    /** «A», «B», «C», «D». */
+    fun letter(parity: Int): String = ('A' + (parity - 1).coerceIn(0, 25)).toString()
 }
 
+/** Turnos por días: ¿toca [date] en un patrón de [on] días sí y [off] días no que empieza en [start]? */
+object Rotation {
+    val DAYS = 1..14
+
+    fun occurs(start: Long, on: Int, off: Int, date: LocalDate): Boolean {
+        if (on <= 0) return false
+        val length = on + off.coerceAtLeast(0)
+        return Math.floorMod(date.toEpochDay() - start, length.toLong()) < on
+    }
+}
+
+/** Actividad por turnos de días (no depende de los días de la semana). */
+val ActivityEntity.isRotation: Boolean get() = onDate == null && rotStart != null && rotOn > 0
+
 /** ¿Toca esta actividad en [date]? */
-fun ActivityEntity.occursOn(date: LocalDate): Boolean =
-    onDate?.let { it == date.toEpochDay() }
-        ?: (daysMask.hasDay(date.dayOfWeek.value - 1) && (weekParity == WeekParity.EVERY || weekParity == WeekParity.of(date)))
+fun ActivityEntity.occursOn(date: LocalDate): Boolean {
+    onDate?.let { return it == date.toEpochDay() }
+    if (isRotation) return Rotation.occurs(rotStart!!, rotOn, rotOff, date)
+    return daysMask.hasDay(date.dayOfWeek.value - 1) &&
+        (weekParity == WeekParity.EVERY || weekParity == WeekParity.of(date, weekCycle))
+}
 
 /** Días de la semana (0 = lunes) en los que puede tocar: el de su fecha si es de un solo día. */
-fun ActivityEntity.weekDays(): List<Int> =
-    onDate?.let { listOf(LocalDate.ofEpochDay(it).dayOfWeek.value - 1) } ?: (0..6).filter { daysMask.hasDay(it) }
+fun ActivityEntity.weekDays(): List<Int> = when {
+    onDate != null -> listOf(LocalDate.ofEpochDay(onDate).dayOfWeek.value - 1)
+    isRotation -> (0..6).toList() // por turnos puede caer cualquier día
+    else -> (0..6).filter { daysMask.hasDay(it) }
+}
 
 /** Una actividad tal y como queda un día concreto, con excepciones y retrasos aplicados. */
 data class PlannedActivity(

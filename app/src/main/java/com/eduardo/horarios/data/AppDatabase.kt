@@ -9,7 +9,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ScheduleEntity::class, ActivityEntity::class, CompletionEntity::class, OverrideEntity::class],
-    version = 5,
+    version = 6,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -71,8 +71,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** v5 → v6: ciclos de 3 o 4 semanas y turnos por días. */
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `activities` ADD COLUMN `weekCycle` INTEGER NOT NULL DEFAULT 2")
+                db.execSQL("ALTER TABLE `activities` ADD COLUMN `rotStart` INTEGER")
+                db.execSQL("ALTER TABLE `activities` ADD COLUMN `rotOn` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `activities` ADD COLUMN `rotOff` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** Todas las migraciones, en orden (también las usan las pruebas). */
-        val MIGRATIONS: Array<Migration> get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+        val MIGRATIONS: Array<Migration> get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6)
 
         fun get(context: Context): AppDatabase =
             instance ?: synchronized(this) {

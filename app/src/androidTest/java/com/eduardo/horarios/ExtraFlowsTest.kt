@@ -18,6 +18,12 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import org.junit.Assert.assertNotNull
 import java.io.File
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performTextInput
+import androidx.test.espresso.Espresso
+import com.eduardo.horarios.ui.home.DaySelection
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -115,6 +121,20 @@ class ExtraFlowsTest {
                 startMinute = 19 * 60, endMinute = 20 * 60, colorIndex = 3, reminderMinutes = 10, weekParity = WeekParity.B,
             )
         )
+        repo.saveActivity(
+            ActivityEntity(
+                scheduleId = scheduleId, title = "Turno", emoji = "🏥", daysMask = 0b1111111,
+                startMinute = 7 * 60, endMinute = 15 * 60, colorIndex = 4, reminderMinutes = 30,
+                weekParity = 0, rotStart = dentistDay.toEpochDay(), rotOn = 4, rotOff = 3,
+            )
+        )
+        repo.saveActivity(
+            ActivityEntity(
+                scheduleId = scheduleId, title = "Inglés", emoji = "🇬🇧", daysMask = 0b0001000,
+                startMinute = 18 * 60, endMinute = 19 * 60, colorIndex = 5, reminderMinutes = 10,
+                weekParity = 3, weekCycle = 4,
+            )
+        )
         val from = LocalDate.now().plusDays(30).toEpochDay()
         repo.setAutoRange(scheduleId, from, from + 6)
         val before = repo.getActiveActivities()
@@ -132,6 +152,13 @@ class ExtraFlowsTest {
         assertFalse(dentist.tracked)
         // v1.5: semanas alternas y fechas automáticas
         assertEquals(WeekParity.B, after.single { it.title == "Pádel" }.weekParity)
+        val turno = after.single { it.title == "Turno" }
+        assertEquals(dentistDay.toEpochDay(), turno.rotStart)
+        assertEquals(4, turno.rotOn)
+        assertEquals(3, turno.rotOff)
+        val ingles = after.single { it.title == "Inglés" }
+        assertEquals(3, ingles.weekParity)
+        assertEquals(4, ingles.weekCycle)
         val restored = repo.getActiveSchedule()!!
         assertEquals(from, restored.autoFrom)
         assertEquals(from + 6, restored.autoTo)
@@ -216,6 +243,8 @@ class ExtraFlowsTest {
             compose.clickFirst(T.tab(s(R.string.tab_settings)))
             compose.onNode(hasTestTag("restore_auto")).performScrollTo()
             compose.waitFor(hasText(s(R.string.auto_backup_last, s(R.string.today))))
+            // Sin carpeta elegida, el consejo de Drive («Mi unidad») está a la vista
+            compose.waitFor(hasTestTag("auto_backup_folder_hint"))
             T.shot(compose, "copia_auto_1_ajustes")
             compose.onNode(hasTestTag("restore_auto")).performClick()
             compose.waitFor(hasTestTag("auto_copy_0"))
@@ -223,6 +252,56 @@ class ExtraFlowsTest {
             compose.clickFirst(hasTestTag("auto_copy_0"))
             compose.clickFirst(hasTestTag("confirm_restore"))
             compose.waitUntil(10_000) { runBlocking { repo.getActiveActivities().size } == count }
+        }
+    }
+
+    /** Turnos por días (2 sí, 2 no) y semanas alternas con ciclo de 3, creadas desde el editor. */
+    @Test
+    fun turnosYCiclosDeSemanas() {
+        newSchedule()
+        val today = LocalDate.now()
+        T.launch(compose, "turnos", language = "es") {
+            DaySelection.select(today)
+            // ---------- Turnos: 2 días sí, 2 no, empezando hoy ----------
+            compose.clickFirst(hasTestTag("fab_add"))
+            compose.clickFirst(hasTestTag("repeat_rotation"))
+            compose.waitFor(hasTestTag("rot_on_value"))
+            repeat(2) { compose.clickFirst(hasTestTag("rot_on_minus")) }
+            repeat(2) { compose.clickFirst(hasTestTag("rot_off_minus")) }
+            compose.waitFor(hasTestTag("rotation_hint") and hasText(s(R.string.rotation_hint, 2, 2, 4)))
+            compose.waitFor(hasText(longDate(T.localizedContext(), today), substring = true))
+            compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Guardia")
+            Espresso.closeSoftKeyboard()
+            T.shot(compose, "turnos_1_editor")
+            compose.clickFirst(hasText(s(R.string.save)))
+            compose.waitFor(card("Guardia"))
+            DaySelection.select(today.plusDays(1))
+            compose.waitFor(card("Guardia"))
+            DaySelection.select(today.plusDays(2))
+            compose.waitGone(card("Guardia"))
+            DaySelection.select(today.plusDays(4))
+            compose.waitFor(card("Guardia"))
+
+            // ---------- Semanas alternas con ciclo de 3 (esta semana) ----------
+            DaySelection.select(today)
+            compose.clickFirst(hasTestTag("fab_add"))
+            compose.clickFirst(hasTestTag("repeat_alternate"))
+            compose.clickFirst(hasTestTag("cycle_3"))
+            compose.waitFor(hasTestTag("week_c"))
+            val letter = WeekParity.letter(WeekParity.of(today, 3))
+            compose.onNode(hasTestTag("week_${letter.lowercase()}")).assertIsSelected()
+            compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Noches")
+            Espresso.closeSoftKeyboard()
+            T.shot(compose, "turnos_2_ciclo_3")
+            compose.clickFirst(hasText(s(R.string.save)))
+            compose.waitFor(card("Noches"))
+            // La cabecera dice qué semana del ciclo es
+            compose.waitFor(hasText(s(R.string.week_label, letter), substring = true))
+            DaySelection.select(today.plusWeeks(1))
+            compose.waitGone(card("Noches"))
+            DaySelection.select(today.plusWeeks(3))
+            compose.waitFor(card("Noches"))
+            T.shot(compose, "turnos_3_tres_semanas_despues")
         }
     }
 }

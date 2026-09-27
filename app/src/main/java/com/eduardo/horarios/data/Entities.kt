@@ -55,8 +55,18 @@ data class ActivityEntity(
     val onDate: Long? = null,
     /** Si cuenta en Progreso (se puede marcar como hecha). Las fijas, como comer o dormir, no. */
     @ColumnInfo(defaultValue = "1") val tracked: Boolean = true,
-    /** Semanas alternas: 0 = todas las semanas, 1 = solo semanas A, 2 = solo semanas B. */
+    /**
+     * Semanas alternas: 0 = todas las semanas; 1..[weekCycle] = qué semana del ciclo (1 = A, 2 = B, 3 = C…).
+     * El nombre viene de la v1.5, cuando solo había semanas A/B.
+     */
     @ColumnInfo(defaultValue = "0") val weekParity: Int = 0,
+    /** Longitud del ciclo de semanas alternas (2, 3 o 4). */
+    @ColumnInfo(defaultValue = "2") val weekCycle: Int = 2,
+    /** Turnos por días (p. ej. 4 sí, 4 no): día en que empieza el patrón; null = no es por turnos. */
+    val rotStart: Long? = null,
+    /** Días seguidos que toca y días seguidos de descanso del turno. */
+    @ColumnInfo(defaultValue = "0") val rotOn: Int = 0,
+    @ColumnInfo(defaultValue = "0") val rotOff: Int = 0,
 )
 
 data class ScheduleCount(

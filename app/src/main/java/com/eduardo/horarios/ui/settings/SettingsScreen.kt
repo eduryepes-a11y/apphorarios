@@ -464,6 +464,14 @@ private fun AutoBackupSection() {
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.testTag("auto_backup_folder"),
             )
+            if (folder == null) {
+                Text(
+                    stringResource(R.string.auto_backup_folder_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 6.dp).testTag("auto_backup_folder_hint"),
+                )
+            }
             if (folder != null && folderError) {
                 Text(
                     stringResource(R.string.auto_backup_folder_error),

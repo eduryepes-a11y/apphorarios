@@ -29,6 +29,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.PostAdd
 import androidx.compose.material.icons.rounded.DeleteOutline
@@ -84,6 +86,7 @@ import com.eduardo.horarios.longDate
 import java.time.Instant
 import java.time.LocalDate
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.data.Rotation
 import java.time.ZoneOffset
 import com.eduardo.horarios.R
 import androidx.compose.ui.res.stringResource
@@ -120,6 +123,7 @@ fun EditorScreen(
     var pickStart by remember { mutableStateOf(false) }
     var pickEnd by remember { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
+    var pickRotStart by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val startAlerts = remember { (context.applicationContext as HorariosApp).scheduler.startAlerts }
@@ -212,32 +216,57 @@ fun EditorScreen(
 
             Column {
                 SectionLabel(stringResource(R.string.repeat))
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ChoiceChip(stringResource(R.string.repeat_weekly), !form.oneOff && form.weekParity == WeekParity.EVERY, accent, Modifier.testTag("repeat_weekly")) {
-                        vm.update { copy(oneOff = false, weekParity = WeekParity.EVERY) }
+                val alternate = !form.oneOff && !form.rotation && form.weekParity != WeekParity.EVERY
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    ChoiceChip(stringResource(R.string.repeat_weekly), !form.oneOff && !form.rotation && form.weekParity == WeekParity.EVERY, accent, Modifier.testTag("repeat_weekly")) {
+                        vm.update { copy(oneOff = false, rotation = false, weekParity = WeekParity.EVERY) }
                     }
-                    ChoiceChip(stringResource(R.string.repeat_alternate), !form.oneOff && form.weekParity != WeekParity.EVERY, accent, Modifier.testTag("repeat_alternate")) {
+                    ChoiceChip(stringResource(R.string.repeat_alternate), alternate, accent, Modifier.testTag("repeat_alternate")) {
                         // Por defecto, la semana en la que se está mirando (la de la fecha elegida)
-                        vm.update { copy(oneOff = false, weekParity = if (weekParity == WeekParity.EVERY) WeekParity.of(date) else weekParity) }
+                        vm.update {
+                            copy(
+                                oneOff = false,
+                                rotation = false,
+                                weekParity = if (weekParity == WeekParity.EVERY) WeekParity.of(date, weekCycle) else weekParity,
+                            )
+                        }
+                    }
+                    ChoiceChip(stringResource(R.string.repeat_rotation), !form.oneOff && form.rotation, accent, Modifier.testTag("repeat_rotation")) {
+                        vm.update { copy(oneOff = false, rotation = true) }
                     }
                     ChoiceChip(stringResource(R.string.repeat_once), form.oneOff, accent, Modifier.testTag("repeat_once")) {
                         vm.update { copy(oneOff = true) }
                     }
                 }
-                if (!form.oneOff && form.weekParity != WeekParity.EVERY) {
+                if (alternate) {
                     Spacer(Modifier.height(10.dp))
+                    // Cada cuántas semanas se repite el ciclo
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChoiceChip(stringResource(R.string.week_a), form.weekParity == WeekParity.A, accent, Modifier.testTag("week_a")) {
-                            vm.update { copy(weekParity = WeekParity.A) }
+                        for (c in WeekParity.CYCLES) {
+                            ChoiceChip(stringResource(R.string.week_cycle_n, c), form.weekCycle == c, accent, Modifier.testTag("cycle_$c")) {
+                                // Al cambiar el ciclo, se propone la semana en la que cae la fecha elegida
+                                vm.update { copy(weekCycle = c, weekParity = WeekParity.of(date, c)) }
+                            }
                         }
-                        ChoiceChip(stringResource(R.string.week_b), form.weekParity == WeekParity.B, accent, Modifier.testTag("week_b")) {
-                            vm.update { copy(weekParity = WeekParity.B) }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    // Qué semana del ciclo (A, B, C…)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        for (p in 1..form.weekCycle) {
+                            val letter = WeekParity.letter(p)
+                            ChoiceChip(stringResource(R.string.week_label, letter), form.weekParity == p, accent, Modifier.testTag("week_${letter.lowercase()}")) {
+                                vm.update { copy(weekParity = p) }
+                            }
                         }
                     }
                     Text(
                         stringResource(
-                            R.string.week_parity_hint,
-                            stringResource(if (WeekParity.of(LocalDate.now()) == WeekParity.A) R.string.week_letter_a else R.string.week_letter_b),
+                            R.string.week_cycle_hint,
+                            WeekParity.letter(WeekParity.of(LocalDate.now(), form.weekCycle)),
+                            (1..form.weekCycle).joinToString(", ") { WeekParity.letter(it) },
                         ),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -247,6 +276,30 @@ fun EditorScreen(
                 Spacer(Modifier.height(12.dp))
                 if (form.oneOff) {
                     DateBox(longDate(context, form.date), accent, Modifier.fillMaxWidth().testTag("date_box")) { pickDate = true }
+                } else if (form.rotation) {
+                    // Turnos: N días sí, M días no, a partir de una fecha
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        DayCounter(stringResource(R.string.rotation_on), form.rotOn, accent, "rot_on", Modifier.weight(1f)) { n ->
+                            vm.update { copy(rotOn = n) }
+                        }
+                        DayCounter(stringResource(R.string.rotation_off), form.rotOff, accent, "rot_off", Modifier.weight(1f)) { n ->
+                            vm.update { copy(rotOff = n) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(R.string.rotation_start),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 4.dp),
+                    )
+                    DateBox(longDate(context, form.rotStart), accent, Modifier.fillMaxWidth().testTag("rot_start_box")) { pickRotStart = true }
+                    Text(
+                        stringResource(R.string.rotation_hint, form.rotOn, form.rotOff, form.rotOn + form.rotOff),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 6.dp).testTag("rotation_hint"),
+                    )
                 } else {
                     DaysPicker(mask = form.daysMask, accent = accent) { m -> vm.update { copy(daysMask = m) } }
                     Spacer(Modifier.height(10.dp))
@@ -405,6 +458,25 @@ fun EditorScreen(
             DatePicker(state = state)
         }
     }
+    if (pickRotStart) {
+        val state = rememberDatePickerState(
+            initialSelectedDateMillis = form.rotStart.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
+        )
+        DatePickerDialog(
+            onDismissRequest = { pickRotStart = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    state.selectedDateMillis?.let { ms ->
+                        vm.update { copy(rotStart = Instant.ofEpochMilli(ms).atZone(ZoneOffset.UTC).toLocalDate()) }
+                    }
+                    pickRotStart = false
+                }) { Text(stringResource(R.string.accept)) }
+            },
+            dismissButton = { TextButton(onClick = { pickRotStart = false }) { Text(stringResource(R.string.cancel)) } },
+        ) {
+            DatePicker(state = state)
+        }
+    }
     if (confirmDelete) {
         AlertDialog(
             onDismissRequest = { confirmDelete = false },
@@ -456,10 +528,12 @@ private fun PreviewCard(form: EditorForm, accent: Color) {
                     color = Color.White.copy(alpha = 0.9f),
                 )
                 Text(
-                    (if (form.oneOff) longDate(context, form.date) else daysSummary(context, form.daysMask)) +
-                        (if (!form.oneOff && form.weekParity != WeekParity.EVERY) {
-                            " · " + context.getString(if (form.weekParity == WeekParity.A) R.string.week_a else R.string.week_b)
-                        } else "") +
+                    when {
+                        form.oneOff -> longDate(context, form.date)
+                        form.rotation -> context.getString(R.string.rotation_short, form.rotOn, form.rotOff)
+                        else -> daysSummary(context, form.daysMask) +
+                            if (form.weekParity != WeekParity.EVERY) " · " + context.getString(R.string.week_label, WeekParity.letter(form.weekParity)) else ""
+                    } +
                         " · " + reminderChipLabel(context, form.reminderMinutes),
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.White.copy(alpha = 0.8f),
@@ -628,6 +702,39 @@ private fun TimePickerDialog(
                     TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
                     TextButton(onClick = { onConfirm(state.hour * 60 + state.minute) }) { Text(stringResource(R.string.accept)) }
                 }
+            }
+        }
+    }
+}
+
+/** Contador de días (1–14) con botones − y +. */
+@Composable
+private fun DayCounter(label: String, value: Int, accent: Color, tag: String, modifier: Modifier, onChange: (Int) -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        modifier = modifier,
+    ) {
+        Column(Modifier.padding(horizontal = 8.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconButton(
+                    onClick = { onChange((value - 1).coerceIn(Rotation.DAYS)) },
+                    enabled = value > Rotation.DAYS.first,
+                    modifier = Modifier.testTag("${tag}_minus"),
+                ) { Icon(Icons.Rounded.Remove, contentDescription = "−") }
+                Text(
+                    value.toString(),
+                    style = MaterialTheme.typography.headlineSmall,
+                    color = accent,
+                    modifier = Modifier.padding(horizontal = 4.dp).testTag("${tag}_value"),
+                )
+                IconButton(
+                    onClick = { onChange((value + 1).coerceIn(Rotation.DAYS)) },
+                    enabled = value < Rotation.DAYS.last,
+                    modifier = Modifier.testTag("${tag}_plus"),
+                ) { Icon(Icons.Rounded.Add, contentDescription = "+") }
             }
         }
     }

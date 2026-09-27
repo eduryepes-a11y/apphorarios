@@ -16,6 +16,7 @@ import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.Tracking
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.data.isRotation
 import java.time.LocalDate
 import com.eduardo.horarios.todayIndex
 import kotlinx.coroutines.launch
@@ -35,8 +36,14 @@ data class EditorForm(
     val tracked: Boolean = true,
     /** El usuario ha tocado el interruptor: ya no lo cambiamos al escribir el nombre. */
     val trackedTouched: Boolean = false,
-    /** Semanas alternas: 0 = todas, 1 = solo semanas A, 2 = solo semanas B (ver [WeekParity]). */
+    /** Semanas alternas: 0 = todas; 1..[weekCycle] = semana del ciclo (ver [WeekParity]). */
     val weekParity: Int = WeekParity.EVERY,
+    val weekCycle: Int = 2,
+    /** Turnos por días: [rotOn] días sí y [rotOff] días no a partir de [rotStart]. */
+    val rotation: Boolean = false,
+    val rotStart: LocalDate = LocalDate.now(),
+    val rotOn: Int = 4,
+    val rotOff: Int = 4,
 )
 
 class EditorViewModel(
@@ -57,7 +64,9 @@ class EditorViewModel(
 
     val isEditing: Boolean = activityId > 0
 
-    var form by mutableStateOf(EditorForm(daysMask = 1 shl initialDay, date = initialDate ?: LocalDate.now()))
+    var form by mutableStateOf(
+        (initialDate ?: LocalDate.now()).let { d -> EditorForm(daysMask = 1 shl initialDay, date = d, rotStart = d) }
+    )
         private set
     var error by mutableStateOf<Int?>(null)
         private set
@@ -81,6 +90,11 @@ class EditorViewModel(
                         tracked = a.tracked,
                         trackedTouched = true,
                         weekParity = a.weekParity,
+                        weekCycle = a.weekCycle,
+                        rotation = a.isRotation,
+                        rotStart = a.rotStart?.let { LocalDate.ofEpochDay(it) } ?: form.date,
+                        rotOn = if (a.isRotation) a.rotOn else 4,
+                        rotOff = if (a.isRotation) a.rotOff else 4,
                     )
                 }
             }
@@ -113,7 +127,7 @@ class EditorViewModel(
         val f = form
         error = when {
             f.title.isBlank() -> R.string.error_no_title
-            !f.oneOff && f.daysMask == 0 -> R.string.error_no_days
+            !f.oneOff && !f.rotation && f.daysMask == 0 -> R.string.error_no_days
             f.endMinute <= f.startMinute -> R.string.error_end_before_start
             else -> null
         }
@@ -132,14 +146,22 @@ class EditorViewModel(
                     title = f.title.trim(),
                     emoji = f.emoji,
                     notes = f.notes.trim(),
-                    daysMask = if (f.oneOff) 1 shl (f.date.dayOfWeek.value - 1) else f.daysMask,
+                    daysMask = when {
+                        f.oneOff -> 1 shl (f.date.dayOfWeek.value - 1)
+                        f.rotation -> 0b1111111 // por turnos: cualquier día puede tocar
+                        else -> f.daysMask
+                    },
                     startMinute = f.startMinute,
                     endMinute = f.endMinute,
                     colorIndex = f.colorIndex,
                     reminderMinutes = f.reminderMinutes,
                     onDate = if (f.oneOff) f.date.toEpochDay() else null,
                     tracked = f.tracked,
-                    weekParity = if (f.oneOff) WeekParity.EVERY else f.weekParity,
+                    weekParity = if (f.oneOff || f.rotation) WeekParity.EVERY else f.weekParity,
+                    weekCycle = f.weekCycle,
+                    rotStart = if (!f.oneOff && f.rotation) f.rotStart.toEpochDay() else null,
+                    rotOn = if (!f.oneOff && f.rotation) f.rotOn else 0,
+                    rotOff = if (!f.oneOff && f.rotation) f.rotOff else 0,
                 )
             )
             onDone()

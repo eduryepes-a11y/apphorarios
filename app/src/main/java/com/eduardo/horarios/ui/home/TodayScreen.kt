@@ -604,13 +604,13 @@ fun weekRangeLabel(weekStart: LocalDate): String {
 
 /** Flechas para cambiar de semana + botón «Hoy» si no estás en la semana actual. */
 @Composable
-fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifier = Modifier, showParity: Boolean = false) {
+fun WeekNavigator(weekStart: LocalDate, isCurrentWeek: Boolean, modifier: Modifier = Modifier, cycle: Int? = null) {
     Row(modifier = modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = { DaySelection.moveWeeks(-1) }) {
             Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, contentDescription = stringResource(R.string.previous_week))
         }
-        val parity = if (showParity) {
-            " · " + stringResource(if (WeekParity.of(weekStart) == WeekParity.A) R.string.week_a else R.string.week_b)
+        val parity = if (cycle != null) {
+            " · " + stringResource(R.string.week_label, WeekParity.letter(WeekParity.of(weekStart, cycle)))
         } else ""
         Text(
             (if (isCurrentWeek) stringResource(R.string.this_week) else weekRangeLabel(weekStart)) + parity,
@@ -632,7 +632,7 @@ private fun WeekDaySelector(state: PlanState, onSelect: (LocalDate) -> Unit) {
     val context = LocalContext.current
     val today = LocalDate.now()
     Column(Modifier.padding(start = 8.dp, end = 8.dp, top = 4.dp)) {
-        WeekNavigator(state.weekStart, state.isCurrentWeek, showParity = state.usesAlternateWeeks)
+        WeekNavigator(state.weekStart, state.isCurrentWeek, cycle = state.alternateCycle)
         Row(
             modifier = Modifier
                 .fillMaxWidth()

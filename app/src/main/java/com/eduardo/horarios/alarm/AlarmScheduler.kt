@@ -16,6 +16,7 @@ import java.time.LocalDate
 import com.eduardo.horarios.data.occursOn
 import com.eduardo.horarios.data.weekDays
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.data.isRotation
 import com.eduardo.horarios.widget.WidgetRefresher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
@@ -250,11 +251,13 @@ class AlarmScheduler(
                 val millis = LocalDate.ofEpochDay(epochDay).atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
                 return if (millis > after) millis else NO_ALARM.toLong()
             }
-            val alternate = activity.weekParity != WeekParity.EVERY
+            val alternate = activity.weekParity != WeekParity.EVERY || activity.isRotation
             if (overrides.isEmpty() && !alternate) return nextTrigger(day, triggerMinute(activity, kind), after)
             val zone = ZoneId.systemDefault()
             val base = Instant.ofEpochMilli(after).atZone(zone).toLocalDate()
-            for (offset in -1L..42L) {
+            // Ciclos largos (4 semanas, turnos de 14 + 14 días en un día de la semana concreto): hasta 16 semanas
+            val horizon = if (alternate) 16L * 7 else 42L
+            for (offset in -1L..horizon) {
                 val date = base.plusDays(offset)
                 if (date.dayOfWeek.value - 1 != day || !activity.occursOn(date)) continue
                 val o = Planner.overridesFor(date.toEpochDay(), overrides)
@@ -264,7 +267,7 @@ class AlarmScheduler(
                 val millis = date.atStartOfDay(zone).plusMinutes(minute.toLong()).toInstant().toEpochMilli()
                 if (millis > after) return millis
             }
-            // Semanas alternas: si todas las de las próximas semanas están saltadas, ya se programará más adelante
+            // Semanas alternas o turnos: si no toca en ese día de la semana pronto, ya se programará más adelante
             if (alternate) return NO_ALARM.toLong()
             return nextTrigger(day, triggerMinute(activity, kind), after)
         }

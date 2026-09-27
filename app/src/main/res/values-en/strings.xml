@@ -356,11 +356,6 @@
     <string name="auto_dates_clear">Remove</string>
     <string name="auto_dates_saved">%1$s will turn on by itself on %2$s</string>
     <string name="repeat_alternate">Alternate weeks</string>
-    <string name="week_a">Week A</string>
-    <string name="week_b">Week B</string>
-    <string name="week_letter_a">A</string>
-    <string name="week_letter_b">B</string>
-    <string name="week_parity_hint">This week is %1$s. Weeks alternate: A, B, A, B…</string>
     <string name="auto_backup_title">Automatic backup</string>
     <string name="auto_backup_text">Saves a backup on your phone every day. The last %1$d are kept.</string>
     <string name="auto_backup_folder_title">Also save to a folder</string>
@@ -378,6 +373,16 @@
     <string name="auto_backup_restore_button">Restore</string>
     <string name="auto_backup_restored">Backup restored ✓</string>
     <string name="auto_dates_pick">Pick the dates</string>
+    <string name="week_label">Week %1$s</string>
+    <string name="week_cycle_n">%1$d weeks</string>
+    <string name="week_cycle_hint">This week is %1$s. They repeat in order: %2$s and start over.</string>
+    <string name="repeat_rotation">Shifts</string>
+    <string name="rotation_on">Days on</string>
+    <string name="rotation_off">Days off</string>
+    <string name="rotation_start">The first day on is…</string>
+    <string name="rotation_hint">A %3$d-day cycle: %1$d days on in a row and %2$d days off, then it starts over. It doesn’t depend on the weekday.</string>
+    <string name="rotation_short">%1$d on · %2$d off</string>
+    <string name="auto_backup_folder_hint">💡 In Drive, open “My Drive” and pick or create a folder inside it. Android doesn’t allow the top level or Downloads.</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>

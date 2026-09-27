@@ -356,11 +356,6 @@
     <string name="auto_dates_clear">Quitar</string>
     <string name="auto_dates_saved">%1$s se activará solo del %2$s</string>
     <string name="repeat_alternate">Semanas alternas</string>
-    <string name="week_a">Semana A</string>
-    <string name="week_b">Semana B</string>
-    <string name="week_letter_a">A</string>
-    <string name="week_letter_b">B</string>
-    <string name="week_parity_hint">Esta semana es la %1$s. Las semanas se alternan: A, B, A, B…</string>
     <string name="auto_backup_title">Copia automática</string>
     <string name="auto_backup_text">Cada día guarda una copia en el móvil. Se conservan las %1$d últimas.</string>
     <string name="auto_backup_folder_title">Guardar también en una carpeta</string>
@@ -378,6 +373,16 @@
     <string name="auto_backup_restore_button">Restaurar</string>
     <string name="auto_backup_restored">Copia restaurada ✓</string>
     <string name="auto_dates_pick">Elige las fechas</string>
+    <string name="week_label">Semana %1$s</string>
+    <string name="week_cycle_n">%1$d semanas</string>
+    <string name="week_cycle_hint">Esta semana es la %1$s. Se repiten en orden: %2$s y vuelta a empezar.</string>
+    <string name="repeat_rotation">Por turnos</string>
+    <string name="rotation_on">Días que toca</string>
+    <string name="rotation_off">Días de descanso</string>
+    <string name="rotation_start">El primer día que toca es…</string>
+    <string name="rotation_hint">Ciclo de %3$d días: %1$d seguidos que toca y %2$d de descanso, y vuelta a empezar. No depende del día de la semana.</string>
+    <string name="rotation_short">%1$d sí · %2$d no</string>
+    <string name="auto_backup_folder_hint">💡 En Drive, entra en «Mi unidad» y elige o crea una carpeta dentro. Android no deja usar la raíz ni Descargas.</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>

@@ -319,6 +319,10 @@ class HorariosRepository(
                     onDate = a.onDate,
                     tracked = a.tracked,
                     weekParity = a.weekParity,
+                    weekCycle = a.weekCycle,
+                    rotStart = a.rotStart,
+                    rotOn = a.rotOn,
+                    rotOff = a.rotOff,
                     doneDays = if (withDone) completionDao.getForActivity(a.id).map { it.epochDay } else emptyList(),
                 )
             },
@@ -366,6 +370,10 @@ class HorariosRepository(
                             onDate = a.onDate,
                             tracked = a.tracked,
                             weekParity = a.weekParity,
+                            weekCycle = a.weekCycle,
+                            rotStart = a.rotStart,
+                            rotOn = a.rotOn,
+                            rotOff = a.rotOff,
                         )
                     )
                     if (a.doneDays.isNotEmpty()) {

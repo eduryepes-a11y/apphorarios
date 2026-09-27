@@ -17,6 +17,10 @@ data class ActivityExport(
     val onDate: Long? = null,
     val tracked: Boolean = true,
     val weekParity: Int = 0,
+    val weekCycle: Int = 2,
+    val rotStart: Long? = null,
+    val rotOn: Int = 0,
+    val rotOff: Int = 0,
 )
 
 data class ScheduleExport(
@@ -72,7 +76,15 @@ object BackupFormat {
                     .put("reminderMinutes", a.reminderMinutes)
                     .put("tracked", a.tracked)
                 a.onDate?.let { o.put("onDate", it) }
-                if (a.weekParity != 0) o.put("weekParity", a.weekParity)
+                if (a.weekParity != 0) {
+                    o.put("weekParity", a.weekParity)
+                    o.put("weekCycle", a.weekCycle)
+                }
+                a.rotStart?.let {
+                    o.put("rotStart", it)
+                    o.put("rotOn", a.rotOn)
+                    o.put("rotOff", a.rotOff)
+                }
                 if (a.doneDays.isNotEmpty()) o.put("doneDays", JSONArray(a.doneDays))
                 acts.put(o)
             }
@@ -133,7 +145,11 @@ object BackupFormat {
                     doneDays = done,
                     onDate = if (a.has("onDate")) a.optLong("onDate") else null,
                     tracked = a.optBoolean("tracked", Tracking.defaultTracked(title)),
-                    weekParity = a.optInt("weekParity", 0).takeIf { it in 0..2 } ?: 0,
+                    weekCycle = a.optInt("weekCycle", 2).coerceIn(WeekParity.CYCLES),
+                    weekParity = a.optInt("weekParity", 0).takeIf { it in 0..a.optInt("weekCycle", 2).coerceIn(WeekParity.CYCLES) } ?: 0,
+                    rotStart = if (a.has("rotStart") && a.optInt("rotOn", 0) > 0) a.optLong("rotStart") else null,
+                    rotOn = a.optInt("rotOn", 0).coerceIn(0, Rotation.DAYS.last),
+                    rotOff = a.optInt("rotOff", 0).coerceIn(0, Rotation.DAYS.last),
                 )
             }
             schedules += ScheduleExport(
