@@ -256,11 +256,16 @@ fun EditorScreen(
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                    // Qué semana del ciclo (A, B, C…)
+                    // Qué semana del ciclo: «Semana  A  B  C  D» (solo las letras, para que quepan 4 en cualquier móvil)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(R.string.week_word),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         for (p in 1..form.weekCycle) {
                             val letter = WeekParity.letter(p)
-                            ChoiceChip(stringResource(R.string.week_label, letter), form.weekParity == p, accent, Modifier.testTag("week_${letter.lowercase()}")) {
+                            ChoiceChip(letter, form.weekParity == p, accent, Modifier.testTag("week_${letter.lowercase()}")) {
                                 vm.update { copy(weekParity = p) }
                             }
                         }

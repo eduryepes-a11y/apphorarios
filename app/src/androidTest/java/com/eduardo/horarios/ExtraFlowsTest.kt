@@ -301,6 +301,8 @@ class ExtraFlowsTest {
             compose.clickFirst(hasTestTag("repeat_alternate"))
             compose.clickFirst(hasTestTag("cycle_3"))
             compose.waitFor(hasTestTag("week_c"))
+            compose.onNode(hasTestTag("week_c")).performScrollTo()
+            compose.assertFitOnScreen("week_a", "week_b", "week_c")
             val letter = WeekParity.letter(WeekParity.of(today, 3))
             compose.onNode(hasTestTag("week_${letter.lowercase()}")).assertIsSelected()
             compose.onAllNodes(hasSetTextAction()).onFirst().performTextInput("Noches")

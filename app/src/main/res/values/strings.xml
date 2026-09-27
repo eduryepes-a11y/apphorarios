@@ -386,6 +386,7 @@
     <string name="week_change">Cambiar</string>
     <string name="week_change_title">¿Qué semana es esta?</string>
     <string name="week_change_text">Elige la letra que tiene esta semana en tu colegio o trabajo. Las demás semanas se ajustan solas y las actividades de cada letra pasan a sus semanas.</string>
+    <string name="week_word">Semana</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>

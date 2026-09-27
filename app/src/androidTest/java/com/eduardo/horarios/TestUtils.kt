@@ -131,3 +131,18 @@ fun ComposeTestRule.selectDay(date: java.time.LocalDate) {
     waitForIdle()
     waitFor(androidx.compose.ui.test.hasTestTag("day_${date.toEpochDay()}"))
 }
+
+/**
+ * Comprueba que los elementos con esas etiquetas caben enteros en la pantalla (no se cortan por
+ * los lados) y que miden parecido (un chip aplastado mide mucho menos que los demás).
+ */
+fun ComposeTestRule.assertFitOnScreen(vararg tags: String) {
+    waitForIdle()
+    val root = onAllNodes(isRoot()).onFirst().fetchSemanticsNode().boundsInRoot
+    val bounds = tags.map { onNode(androidx.compose.ui.test.hasTestTag(it)).fetchSemanticsNode().boundsInRoot }
+    bounds.forEachIndexed { i, b ->
+        org.junit.Assert.assertTrue("${tags[i]} se sale de la pantalla: $b (pantalla $root)", b.left >= root.left - 1f && b.right <= root.right + 1f)
+    }
+    val widths = bounds.map { it.width }
+    org.junit.Assert.assertTrue("Anchos muy distintos (¿alguno aplastado?): $widths", widths.min() >= widths.max() * 0.8f)
+}

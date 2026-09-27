@@ -386,6 +386,7 @@
     <string name="week_change">Change</string>
     <string name="week_change_title">Which week is this?</string>
     <string name="week_change_text">Pick the letter this week has at your school or work. The other weeks adjust by themselves and each letter’s activities move to their weeks.</string>
+    <string name="week_word">Week</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>
