@@ -383,6 +383,9 @@
     <string name="rotation_hint">A %3$d-day cycle: %1$d days on in a row and %2$d days off, then it starts over. It doesn’t depend on the weekday.</string>
     <string name="rotation_short">%1$d on · %2$d off</string>
     <string name="auto_backup_folder_hint">💡 In Drive, open “My Drive” and pick or create a folder inside it. Android doesn’t allow the top level or Downloads.</string>
+    <string name="week_change">Change</string>
+    <string name="week_change_title">Which week is this?</string>
+    <string name="week_change_text">Pick the letter this week has at your school or work. The other weeks adjust by themselves and each letter’s activities move to their weeks.</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>

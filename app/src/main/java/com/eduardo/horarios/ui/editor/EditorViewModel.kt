@@ -123,6 +123,12 @@ class EditorViewModel(
 
     fun setEnd(minute: Int) = update { copy(endMinute = minute) }
 
+    /** «Esta semana es la [parity]»: ajusta las letras de todas las semanas de este ciclo. */
+    fun setThisWeekLetter(parity: Int) {
+        val cycle = form.weekCycle
+        viewModelScope.launch { repo.setThisWeekLetter(cycle, parity) }
+    }
+
     fun save(onDone: () -> Unit) {
         val f = form
         error = when {

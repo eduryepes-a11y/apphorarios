@@ -164,6 +164,14 @@ class HorariosRepository(
         scheduler.rescheduleAll()
     }
 
+    // ---------- Semanas alternas ----------
+
+    /** «Esta semana es la [parity]» en el ciclo de [cycle] semanas: ajusta las letras y reprograma los avisos. */
+    suspend fun setThisWeekLetter(cycle: Int, parity: Int) {
+        WeekCalibration.setThisWeek(context, cycle, parity)
+        scheduler.rescheduleAll()
+    }
+
     // ---------- Fechas automáticas ----------
 
     /** Horario «de siempre» al que se vuelve cuando termina un periodo con fechas. */
@@ -384,6 +392,8 @@ class HorariosRepository(
             val toActivate = activateId ?: if (replace) scheduleDao.getAll().firstOrNull()?.id else null
             if (toActivate != null) scheduleDao.setActive(toActivate)
         }
+        // Al restaurar una copia completa, también las letras de las semanas alternas
+        if (replace) file.weekOffsets?.let { WeekCalibration.replaceAll(context, it) }
         scheduler.rescheduleAll()
         return file.schedules.size
     }

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import com.eduardo.horarios.data.WeekParity
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
@@ -38,7 +39,8 @@ class StatsViewModel(private val repo: HorariosRepository) : ViewModel() {
         repo.activeActivities,
         repo.completionsSince(LocalDate.now().minusDays(400).toEpochDay()),
         repo.overridesBetween(LocalDate.now().minusDays(400).toEpochDay(), LocalDate.now().plusDays(7).toEpochDay()),
-        period,
+        // Al ajustar las letras de las semanas alternas se recalcula
+        combine(period, WeekParity.offsets) { p, _ -> p },
     ) { schedule, activities, completions, overrides, periodDays ->
         StatsState(
             loading = false,

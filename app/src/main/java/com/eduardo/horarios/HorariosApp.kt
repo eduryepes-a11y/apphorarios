@@ -8,6 +8,7 @@ import com.eduardo.horarios.alarm.WeeklySummary
 import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.SettingsStore
+import com.eduardo.horarios.data.WeekCalibration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,6 +32,8 @@ class HorariosApp : Application() {
         settings = SettingsStore(this)
         Notifications.createChannel(this)
         WeeklySummary.createChannel(this)
+        // Antes de nada: las letras de las semanas alternas (A, B…) según las ajustó el usuario
+        WeekCalibration.load(this)
         database = AppDatabase.get(this)
         scheduler = AlarmScheduler(this, database)
         repository = HorariosRepository(this, database, scheduler)

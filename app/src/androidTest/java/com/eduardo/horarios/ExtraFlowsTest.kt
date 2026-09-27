@@ -11,6 +11,7 @@ import com.eduardo.horarios.data.HorariosFile
 import com.eduardo.horarios.data.StatsCalculator
 import com.eduardo.horarios.data.Templates
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.data.WeekCalibration
 import com.eduardo.horarios.data.AutoBackup
 import com.eduardo.horarios.data.AutoBackupFiles
 import androidx.compose.ui.test.hasTestTag
@@ -135,6 +136,12 @@ class ExtraFlowsTest {
                 weekParity = 3, weekCycle = 4,
             )
         )
+        // Letras ajustadas: en el ciclo de 3, esta semana pasa a ser la siguiente letra
+        val target = WeekParity.of(LocalDate.now(), 3) % 3 + 1
+        repo.setThisWeekLetter(3, target)
+        val offsets = WeekParity.offsets.value
+        assertTrue(offsets.isNotEmpty())
+        assertEquals(target, WeekParity.of(LocalDate.now(), 3))
         val from = LocalDate.now().plusDays(30).toEpochDay()
         repo.setAutoRange(scheduleId, from, from + 6)
         val before = repo.getActiveActivities()
@@ -143,6 +150,10 @@ class ExtraFlowsTest {
         val json = BackupFormat.toJson(HorariosFile.KIND_BACKUP, repo.exportAll())
         val parsed = BackupFormat.parse(json)
         assertTrue(parsed.isBackup)
+        assertEquals(offsets, parsed.weekOffsets)
+        // Se pierde el ajuste… y la copia lo recupera
+        T.onMain { WeekCalibration.replaceAll(T.app, emptyMap()) }
+        assertTrue(WeekParity.offsets.value.isEmpty())
         repo.import(parsed, replace = true)
 
         val after = repo.getActiveActivities()
@@ -159,6 +170,8 @@ class ExtraFlowsTest {
         val ingles = after.single { it.title == "Inglés" }
         assertEquals(3, ingles.weekParity)
         assertEquals(4, ingles.weekCycle)
+        assertEquals(offsets, WeekParity.offsets.value)
+        assertEquals(target, WeekParity.of(LocalDate.now(), 3))
         val restored = repo.getActiveSchedule()!!
         assertEquals(from, restored.autoFrom)
         assertEquals(from + 6, restored.autoTo)
@@ -302,6 +315,32 @@ class ExtraFlowsTest {
             DaySelection.select(today.plusWeeks(3))
             compose.waitFor(card("Noches"))
             T.shot(compose, "turnos_3_tres_semanas_despues")
+
+            // ---------- «Esta semana es la…»: ajustar las letras a las de la vida real ----------
+            DaySelection.select(today)
+            compose.waitFor(card("Noches"))
+            compose.clickFirst(hasTestTag("fab_add"))
+            compose.clickFirst(hasTestTag("repeat_alternate"))
+            compose.clickFirst(hasTestTag("cycle_3"))
+            compose.clickFirst(hasTestTag("change_week_letter"))
+            compose.waitFor(hasText(s(R.string.week_change_title)))
+            T.shot(compose, "turnos_4_que_semana_es")
+            // Otra letra distinta de la actual (la siguiente del ciclo)
+            val newLetter = WeekParity.letter(WeekParity.of(today, 3) % 3 + 1)
+            compose.clickFirst(hasTestTag("this_week_${newLetter.lowercase()}"))
+            compose.waitGone(hasText(s(R.string.week_change_title)))
+            compose.waitFor(hasTestTag("week_parity_hint") and hasText(s(R.string.week_cycle_hint, newLetter, "A, B, C")))
+            assertEquals(newLetter, WeekParity.letter(WeekParity.of(today, 3)))
+            T.shot(compose, "turnos_5_letra_cambiada")
+            Espresso.pressBack()
+            // «Noches» era de la semana «letter»: ahora esta semana es otra, así que hoy ya no está…
+            compose.waitGone(card("Noches"))
+            compose.waitFor(hasText(s(R.string.week_label, newLetter), substring = true))
+            // …y está en la semana que ahora tiene su letra
+            val nochesWeek = (1L..2L).first { WeekParity.letter(WeekParity.of(today.plusWeeks(it), 3)) == letter }
+            DaySelection.select(today.plusWeeks(nochesWeek))
+            compose.waitFor(card("Noches"))
+            T.shot(compose, "turnos_6_noches_en_su_semana")
         }
     }
 }

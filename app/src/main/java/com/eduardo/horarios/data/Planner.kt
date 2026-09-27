@@ -2,14 +2,17 @@ package com.eduardo.horarios.data
 
 import com.eduardo.horarios.hasDay
 import java.time.LocalDate
+import kotlinx.coroutines.flow.MutableStateFlow
 
 /** Actividad de un solo día (no se repite cada semana). */
 val ActivityEntity.isOneOff: Boolean get() = onDate != null
 
 /**
  * Semanas alternas (A/B, A/B/C, A/B/C/D). Las semanas van de lunes a domingo y se numeran desde
- * el lunes 5 de enero de 1970 (epochDay 4), que es semana A en todos los ciclos. Así la letra de
- * cada semana nunca cambia.
+ * el lunes 5 de enero de 1970 (epochDay 4), que es semana A en todos los ciclos si no hay ajuste.
+ *
+ * [offsets]: ajuste de cada ciclo para que las letras coincidan con las de la vida real
+ * («en el cole, esta semana es la A»). Lo guarda y carga [WeekCalibration].
  */
 object WeekParity {
     const val EVERY = 0
@@ -17,10 +20,26 @@ object WeekParity {
     const val B = 2
     val CYCLES = 2..4
 
+    /** Ciclo (2, 3, 4) → cuántas semanas se desplazan las letras. */
+    val offsets = MutableStateFlow<Map<Int, Int>>(emptyMap())
+
     fun weekIndex(date: LocalDate): Long = Math.floorDiv(date.toEpochDay() - 4, 7L)
 
     /** Semana del ciclo de [cycle] semanas en la que cae [date]: 1 = A, 2 = B… */
-    fun of(date: LocalDate, cycle: Int = 2): Int = Math.floorMod(weekIndex(date), cycle.coerceIn(CYCLES).toLong()).toInt() + 1
+    fun of(date: LocalDate, cycle: Int = 2): Int {
+        val c = cycle.coerceIn(CYCLES)
+        return Math.floorMod(weekIndex(date) + (offsets.value[c] ?: 0), c.toLong()).toInt() + 1
+    }
+
+    /** Ajuste para que la semana de [date] sea la [parity] (1 = A…) en un ciclo de [cycle]. */
+    fun offsetFor(date: LocalDate, cycle: Int, parity: Int): Int {
+        val c = cycle.coerceIn(CYCLES)
+        return Math.floorMod((parity - 1).toLong() - weekIndex(date), c.toLong()).toInt()
+    }
+
+    /** Solo ajustes válidos: ciclos 2–4 y desplazamientos dentro del ciclo (0 no hace falta guardarlo). */
+    fun clean(map: Map<Int, Int>): Map<Int, Int> =
+        map.filterKeys { it in CYCLES }.mapValues { (c, o) -> Math.floorMod(o, c) }.filterValues { it != 0 }
 
     /** «A», «B», «C», «D». */
     fun letter(parity: Int): String = ('A' + (parity - 1).coerceIn(0, 25)).toString()

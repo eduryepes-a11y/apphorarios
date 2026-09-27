@@ -14,6 +14,7 @@ import com.eduardo.horarios.data.OverrideEntity
 import com.eduardo.horarios.data.PlannedActivity
 import com.eduardo.horarios.data.Planner
 import com.eduardo.horarios.data.ScheduleEntity
+import com.eduardo.horarios.data.WeekParity
 import com.eduardo.horarios.nowMinuteOfDay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,6 +50,7 @@ private data class WeekData(
     val weekStart: LocalDate,
     val completions: List<CompletionEntity>,
     val overrides: List<OverrideEntity>,
+    val weekOffsets: Map<Int, Int>,
 )
 
 data class PlanState(
@@ -61,6 +63,8 @@ data class PlanState(
     /** (activityId, epochDay) hechas en la semana visible. */
     val done: Set<Pair<Long, Long>> = emptySet(),
     val overrides: List<OverrideEntity> = emptyList(),
+    /** Solo para que el estado cambie (y se repinte) al ajustar las letras de las semanas. */
+    val weekOffsets: Map<Int, Int> = emptyMap(),
 ) {
     fun plan(d: LocalDate): List<PlannedActivity> = Planner.plan(d, activities, overrides)
     /**
@@ -86,8 +90,9 @@ class PlanViewModel(private val repo: HorariosRepository) : ViewModel() {
         .flatMapLatest { ws ->
             val from = ws.toEpochDay()
             val to = from + 6
-            combine(repo.completionsBetween(from, to), repo.overridesBetween(from, to)) { c, o ->
-                WeekData(ws, c, o)
+            // Las letras de las semanas alternas también cambian lo que toca cada día
+            combine(repo.completionsBetween(from, to), repo.overridesBetween(from, to), WeekParity.offsets) { c, o, off ->
+                WeekData(ws, c, o, off)
             }
         }
 
@@ -107,6 +112,7 @@ class PlanViewModel(private val repo: HorariosRepository) : ViewModel() {
             weekStart = week.weekStart,
             done = week.completions.map { it.activityId to it.epochDay }.toSet(),
             overrides = week.overrides,
+            weekOffsets = week.weekOffsets,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), PlanState())
 

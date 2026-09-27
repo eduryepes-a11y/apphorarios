@@ -383,6 +383,9 @@
     <string name="rotation_hint">Ciclo de %3$d días: %1$d seguidos que toca y %2$d de descanso, y vuelta a empezar. No depende del día de la semana.</string>
     <string name="rotation_short">%1$d sí · %2$d no</string>
     <string name="auto_backup_folder_hint">💡 En Drive, entra en «Mi unidad» y elige o crea una carpeta dentro. Android no deja usar la raíz ni Descargas.</string>
+    <string name="week_change">Cambiar</string>
+    <string name="week_change_title">¿Qué semana es esta?</string>
+    <string name="week_change_text">Elige la letra que tiene esta semana en tu colegio o trabajo. Las demás semanas se ajustan solas y las actividades de cada letra pasan a sus semanas.</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>

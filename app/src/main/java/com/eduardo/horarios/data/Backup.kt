@@ -37,6 +37,8 @@ data class ScheduleExport(
 data class HorariosFile(
     val kind: String,
     val schedules: List<ScheduleExport>,
+    /** Ajuste de las letras de las semanas alternas (solo en copias de seguridad). */
+    val weekOffsets: Map<Int, Int>? = null,
 ) {
     val isBackup: Boolean get() = kind == KIND_BACKUP
 
@@ -55,7 +57,7 @@ class InvalidFileException : Exception()
 object BackupFormat {
     private const val FORMAT = 1
 
-    fun toJson(kind: String, schedules: List<ScheduleExport>): String {
+    fun toJson(kind: String, schedules: List<ScheduleExport>, weekOffsets: Map<Int, Int> = WeekParity.offsets.value): String {
         val root = JSONObject()
             .put("app", "horarios")
             .put("format", FORMAT)
@@ -104,6 +106,11 @@ object BackupFormat {
             )
         }
         root.put("schedules", arr)
+        if (kind == HorariosFile.KIND_BACKUP) {
+            val o = JSONObject()
+            WeekParity.clean(weekOffsets).forEach { (c, v) -> o.put(c.toString(), v) }
+            root.put("weekOffsets", o)
+        }
         return root.toString(2)
     }
 
@@ -164,6 +171,9 @@ object BackupFormat {
         }
         if (schedules.isEmpty()) throw InvalidFileException()
         val kind = if (root.optString("kind") == HorariosFile.KIND_SCHEDULE) HorariosFile.KIND_SCHEDULE else HorariosFile.KIND_BACKUP
-        return HorariosFile(kind, schedules)
+        val offsets = root.optJSONObject("weekOffsets")?.let { o ->
+            WeekParity.clean(o.keys().asSequence().mapNotNull { k -> k.toIntOrNull()?.let { it to o.optInt(k, 0) } }.toMap())
+        }
+        return HorariosFile(kind, schedules, if (kind == HorariosFile.KIND_BACKUP) offsets else null)
     }
 }

@@ -37,6 +37,8 @@ import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -124,6 +126,7 @@ fun EditorScreen(
     var pickEnd by remember { mutableStateOf(false) }
     var pickDate by remember { mutableStateOf(false) }
     var pickRotStart by remember { mutableStateOf(false) }
+    var pickThisWeek by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val startAlerts = remember { (context.applicationContext as HorariosApp).scheduler.startAlerts }
@@ -262,16 +265,24 @@ fun EditorScreen(
                             }
                         }
                     }
-                    Text(
-                        stringResource(
-                            R.string.week_cycle_hint,
-                            WeekParity.letter(WeekParity.of(LocalDate.now(), form.weekCycle)),
-                            (1..form.weekCycle).joinToString(", ") { WeekParity.letter(it) },
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 4.dp).testTag("week_parity_hint"),
-                    )
+                    // Se repinta al ajustar las letras («esta semana es la A»)
+                    val offsets by WeekParity.offsets.collectAsState()
+                    val thisWeek = remember(offsets, form.weekCycle) { WeekParity.of(LocalDate.now(), form.weekCycle) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            stringResource(
+                                R.string.week_cycle_hint,
+                                WeekParity.letter(thisWeek),
+                                (1..form.weekCycle).joinToString(", ") { WeekParity.letter(it) },
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f).padding(top = 4.dp).testTag("week_parity_hint"),
+                        )
+                        TextButton(onClick = { pickThisWeek = true }, modifier = Modifier.testTag("change_week_letter")) {
+                            Text(stringResource(R.string.week_change))
+                        }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
                 if (form.oneOff) {
@@ -476,6 +487,43 @@ fun EditorScreen(
         ) {
             DatePicker(state = state)
         }
+    }
+    if (pickThisWeek) {
+        val current = WeekParity.of(LocalDate.now(), form.weekCycle)
+        AlertDialog(
+            onDismissRequest = { pickThisWeek = false },
+            title = { Text(stringResource(R.string.week_change_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.week_change_text),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    for (p in 1..form.weekCycle) {
+                        val letter = WeekParity.letter(p)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable {
+                                    pickThisWeek = false
+                                    if (p != current) vm.setThisWeekLetter(p)
+                                }
+                                .padding(vertical = 4.dp)
+                                .testTag("this_week_${letter.lowercase()}"),
+                        ) {
+                            RadioButton(selected = p == current, onClick = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.week_label, letter), style = MaterialTheme.typography.bodyLarge)
+                        }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { pickThisWeek = false }) { Text(stringResource(R.string.cancel)) } },
+        )
     }
     if (confirmDelete) {
         AlertDialog(
