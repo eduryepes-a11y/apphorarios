@@ -322,7 +322,8 @@ class ExtraFlowsTest {
             compose.clickFirst(hasTestTag("fab_add"))
             compose.clickFirst(hasTestTag("repeat_alternate"))
             compose.clickFirst(hasTestTag("cycle_3"))
-            compose.clickFirst(hasTestTag("change_week_letter"))
+            // Queda por debajo del botón «Guardar»: primero hay que desplazarse hasta él
+            compose.onNode(hasTestTag("change_week_letter")).performScrollTo().performClick()
             compose.waitFor(hasText(s(R.string.week_change_title)))
             T.shot(compose, "turnos_4_que_semana_es")
             // Otra letra distinta de la actual (la siguiente del ciclo)
