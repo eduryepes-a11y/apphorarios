@@ -377,7 +377,7 @@
     <string name="auto_backup_restore_text">Se sustituirán todos tus horarios, actividades y progreso por los de esa copia.</string>
     <string name="auto_backup_restore_button">Restaurar</string>
     <string name="auto_backup_restored">Copia restaurada ✓</string>
-    <string name="auto_dates_pick">Elige el primer y el último día</string>
+    <string name="auto_dates_pick">Elige las fechas</string>
     <string-array name="days_short">
         <item>L</item>
         <item>M</item>

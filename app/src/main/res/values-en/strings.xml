@@ -377,7 +377,7 @@
     <string name="auto_backup_restore_text">All your schedules, activities and progress will be replaced by the ones in that backup.</string>
     <string name="auto_backup_restore_button">Restore</string>
     <string name="auto_backup_restored">Backup restored ✓</string>
-    <string name="auto_dates_pick">Pick the first and last day</string>
+    <string name="auto_dates_pick">Pick the dates</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>
