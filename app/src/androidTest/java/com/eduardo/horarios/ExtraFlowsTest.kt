@@ -176,7 +176,10 @@ class ExtraFlowsTest {
             // Pasado el periodo vuelve «Clases» solo
             assertTrue(repo.runAutoSwitch(today + 6))
             assertEquals(normalId, repo.getActiveSchedule()!!.id)
-            // Y al quitar unas fechas que cubren hoy también se vuelve al de siempre
+            // Quitar las fechas no cambia nada (ya está «Clases»)
+            repo.setAutoRange(holidaysId, null, null)
+            assertEquals(normalId, repo.getActiveSchedule()!!.id)
+            // Unas fechas nuevas que cubren hoy lo activan; al quitarlas vuelve el de siempre
             repo.setAutoRange(holidaysId, today, today + 2)
             assertEquals(holidaysId, repo.getActiveSchedule()!!.id)
             repo.setAutoRange(holidaysId, null, null)
