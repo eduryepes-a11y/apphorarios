@@ -202,6 +202,9 @@ fun AppNavigation(showOnboarding: Boolean) {
         }
     }
     ImportHandler()
+    // Horarios Pro: elegir horarios al terminar la suscripción y la hoja para suscribirse
+    com.eduardo.horarios.ui.pro.FreeChoiceHandler()
+    com.eduardo.horarios.ui.pro.PaywallHost()
 }
 
 /**

@@ -31,10 +31,19 @@ class MainActivity : AppCompatActivity() {
                 ThemeMode.LIGHT -> false
                 ThemeMode.DARK -> true
             }
-            HorariosTheme(darkTheme = dark, accentIndex = accent) {
+            // Sin Pro, los colores de Pro vuelven al de siempre (si se dejó de pagar)
+            val pro by com.eduardo.horarios.pro.Pro.state.collectAsStateWithLifecycle()
+            val shownAccent = if (pro.active || com.eduardo.horarios.pro.ProRules.isAccentFree(accent)) accent else 0
+            HorariosTheme(darkTheme = dark, accentIndex = shownAccent) {
                 AppNavigation(showOnboarding = showOnboarding)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Comprueba la suscripción a Pro al volver a la app (por si se canceló o renovó)
+        com.eduardo.horarios.pro.ProBilling.refresh()
     }
 
     override fun onNewIntent(intent: Intent) {

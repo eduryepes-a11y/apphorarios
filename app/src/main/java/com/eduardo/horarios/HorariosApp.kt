@@ -9,6 +9,7 @@ import com.eduardo.horarios.data.AppDatabase
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.SettingsStore
 import com.eduardo.horarios.data.WeekCalibration
+import com.eduardo.horarios.pro.Pro
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -37,6 +38,12 @@ class HorariosApp : Application() {
         database = AppDatabase.get(this)
         scheduler = AlarmScheduler(this, database)
         repository = HorariosRepository(this, database, scheduler)
+        // Horarios Pro: lo último que se supo y la tienda (en GitHub, todo desbloqueado)
+        Pro.init(this)
+        appScope.launch {
+            // Al empezar o terminar Pro: bloquear o desbloquear horarios y reprogramar avisos
+            Pro.state.collect { repository.enforceFreeLimits() }
+        }
         // Quien ya usaba la app (versiones anteriores) no ve la bienvenida
         if (!settings.onboarded && getSharedPreferences("app", MODE_PRIVATE).getBoolean("seeded", false)) {
             settings.setOnboarded()

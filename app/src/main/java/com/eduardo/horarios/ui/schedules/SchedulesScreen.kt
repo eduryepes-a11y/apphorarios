@@ -28,6 +28,12 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DateRange
+import androidx.compose.material.icons.rounded.Lock
+import com.eduardo.horarios.pro.FreeState
+import com.eduardo.horarios.pro.LockReason
+import com.eduardo.horarios.pro.Paywall
+import com.eduardo.horarios.pro.PaywallReason
+import com.eduardo.horarios.ui.pro.ProBadge
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
 import androidx.compose.material3.rememberDateRangePickerState
@@ -118,11 +124,13 @@ import kotlinx.coroutines.launch
 data class SchedulesState(
     val schedules: List<ScheduleEntity> = emptyList(),
     val counts: Map<Long, Int> = emptyMap(),
+    /** Qué está bloqueado 🔒 sin Pro. */
+    val free: FreeState = FreeState(true, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = true),
 )
 
 class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
-    val state: StateFlow<SchedulesState> = combine(repo.schedules, repo.activityCounts) { s, c ->
-        SchedulesState(s, c)
+    val state: StateFlow<SchedulesState> = combine(repo.schedules, repo.activityCounts, repo.freeState) { s, c, f ->
+        SchedulesState(s, c, f)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SchedulesState())
 
     fun activate(s: ScheduleEntity) = viewModelScope.launch { repo.activate(s.id) }
@@ -188,7 +196,11 @@ fun SchedulesScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { choosingTemplate = true },
+                onClick = {
+                    // Sin Pro: como mucho 2 horarios
+                    if (state.free.canCreate) choosingTemplate = true else Paywall.show(PaywallReason.SCHEDULES)
+                },
+                modifier = Modifier.testTag("new_schedule"),
                 icon = { Icon(Icons.Rounded.Add, contentDescription = null) },
                 text = { Text(stringResource(R.string.new_schedule)) },
                 containerColor = MaterialTheme.colorScheme.primary,
@@ -214,19 +226,24 @@ fun SchedulesScreen(
                 )
             }
             items(state.schedules, key = { it.id }) { s ->
+                val lock = state.free.locked[s.id]
                 ScheduleCard(
                     schedule = s,
                     count = state.counts[s.id] ?: 0,
+                    lock = lock,
+                    isPro = state.free.isPro,
                     onActivate = {
-                        if (!s.isActive) {
+                        if (lock != null) {
+                            Paywall.show(PaywallReason.LOCKED_SCHEDULE)
+                        } else if (!s.isActive) {
                             vm.activate(s)
                             scope.launch { snackbar.showSnackbar(context.getString(R.string.schedule_activated, s.name)) }
                         }
                     },
                     onEdit = { editing = s },
-                    onDuplicate = { vm.duplicate(s) },
+                    onDuplicate = { if (state.free.canCreate) vm.duplicate(s) else Paywall.show(PaywallReason.SCHEDULES) },
                     onShare = { vm.share(context, s) },
-                    onDates = { dating = s },
+                    onDates = { if (state.free.isPro) dating = s else Paywall.show(PaywallReason.AUTO_DATES) },
                     onDelete = { deleting = s },
                     modifier = Modifier.animateItem(),
                 )
@@ -330,6 +347,8 @@ fun SchedulesScreen(
 private fun ScheduleCard(
     schedule: ScheduleEntity,
     count: Int,
+    lock: LockReason?,
+    isPro: Boolean,
     onActivate: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
@@ -371,12 +390,24 @@ private fun ScheduleCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Text(
+                if (lock != null) {
+                    // Bloqueado sin Pro: no se ve su contenido, solo por qué
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 2.dp)) {
+                        Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            stringResource(if (lock == LockReason.PRO_FEATURE) R.string.lock_pro_feature else R.string.lock_over_limit),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.testTag("locked_${schedule.id}"),
+                        )
+                    }
+                } else Text(
                     pluralStringResource(R.plurals.activities_count, count, count),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (schedule.hasAutoRange) {
+                if (lock == null && schedule.hasAutoRange) {
                     Text(
                         "📅 " + shortRange(context, LocalDate.ofEpochDay(schedule.autoFrom!!), LocalDate.ofEpochDay(schedule.autoTo!!)),
                         style = MaterialTheme.typography.bodySmall,
@@ -389,16 +420,34 @@ private fun ScheduleCard(
                     Pill(stringResource(R.string.active_badge), color)
                 }
             }
-            RadioButton(
-                selected = schedule.isActive,
-                onClick = onActivate,
-                colors = RadioButtonDefaults.colors(selectedColor = color),
-            )
+            if (lock != null) {
+                Icon(
+                    Icons.Rounded.Lock,
+                    contentDescription = stringResource(R.string.locked),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(12.dp),
+                )
+            } else {
+                RadioButton(
+                    selected = schedule.isActive,
+                    onClick = onActivate,
+                    colors = RadioButtonDefaults.colors(selectedColor = color),
+                )
+            }
             Box {
                 IconButton(onClick = { menu = true }, modifier = Modifier.testTag("schedule_menu_${schedule.id}")) {
                     Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.options))
                 }
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
+                  if (lock != null) {
+                    // Bloqueado: solo desbloquear con Pro o borrar
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.unlock_with_pro)) },
+                        leadingIcon = { Icon(Icons.Rounded.Lock, null) },
+                        onClick = { menu = false; Paywall.show(PaywallReason.LOCKED_SCHEDULE) },
+                        modifier = Modifier.testTag("menu_unlock"),
+                    )
+                  } else {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.edit)) },
                         leadingIcon = { Icon(Icons.Rounded.Edit, null) },
@@ -412,6 +461,7 @@ private fun ScheduleCard(
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.auto_dates_menu)) },
                         leadingIcon = { Icon(Icons.Rounded.DateRange, null) },
+                        trailingIcon = { if (!isPro) ProBadge() },
                         onClick = { menu = false; onDates() },
                         modifier = Modifier.testTag("menu_auto_dates"),
                     )
@@ -420,6 +470,7 @@ private fun ScheduleCard(
                         leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) },
                         onClick = { menu = false; onDuplicate() },
                     )
+                  }
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error) },
                         leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = MaterialTheme.colorScheme.error) },

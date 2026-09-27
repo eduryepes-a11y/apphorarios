@@ -101,6 +101,8 @@ dependencies {
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
     implementation(libs.androidx.glance.appwidget)
+    // Suscripción Horarios Pro (solo en la variante de Google Play)
+    "playImplementation"("com.android.billingclient:billing-ktx:7.1.1")
     debugImplementation(libs.androidx.ui.tooling)
 
     // Pruebas en el ordenador (lógica pura)

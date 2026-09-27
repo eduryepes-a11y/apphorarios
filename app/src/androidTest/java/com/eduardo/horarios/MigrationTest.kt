@@ -46,6 +46,7 @@ class MigrationTest {
                 "`colorIndex` INTEGER NOT NULL, `reminderMinutes` INTEGER NOT NULL, " +
                 (if (version >= 4) "`onDate` INTEGER, `tracked` INTEGER NOT NULL DEFAULT 1, " else "") +
                 (if (version >= 5) "`weekParity` INTEGER NOT NULL DEFAULT 0, " else "") +
+                (if (version >= 6) "`weekCycle` INTEGER NOT NULL DEFAULT 2, `rotStart` INTEGER, `rotOn` INTEGER NOT NULL DEFAULT 0, `rotOff` INTEGER NOT NULL DEFAULT 0, " else "") +
                 "FOREIGN KEY(`scheduleId`) REFERENCES `schedules`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )"
         )
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_activities_scheduleId` ON `activities` (`scheduleId`)")
@@ -71,6 +72,7 @@ class MigrationTest {
         )
         if (version >= 4) db.execSQL("UPDATE activities SET tracked = 0 WHERE id = 1")
         if (version >= 5) db.execSQL("UPDATE activities SET weekParity = 2 WHERE id = 1")
+        if (version >= 6) db.execSQL("UPDATE activities SET weekCycle = 3 WHERE id = 1")
         if (version >= 2) db.execSQL("INSERT INTO completions (activityId, epochDay, completedAt) VALUES (1, 20000, 0)")
         db.version = version
         db.close()
@@ -111,7 +113,7 @@ class MigrationTest {
             // v6: ciclo de 2 semanas (las A/B de la v1.5 siguen igual) y sin turnos
             db.openHelper.readableDatabase.query("SELECT weekCycle, rotStart, rotOn, rotOff FROM activities").use { c ->
                 c.moveToFirst()
-                assertEquals(2, c.getInt(0))
+                assertEquals(if (fromVersion >= 6) 3 else 2, c.getInt(0))
                 assertTrue(c.isNull(1))
                 assertEquals(0, c.getInt(2))
                 assertEquals(0, c.getInt(3))
@@ -120,6 +122,11 @@ class MigrationTest {
                 c.moveToFirst()
                 assertTrue(c.isNull(0))
                 assertTrue(c.isNull(1))
+            }
+            // v7: ningún horario bloqueado
+            db.openHelper.readableDatabase.query("SELECT freeLocked FROM schedules").use { c ->
+                c.moveToFirst()
+                assertEquals(0, c.getInt(0))
             }
         } finally {
             db.close()
@@ -140,4 +147,7 @@ class MigrationTest {
 
     @Test
     fun desdeVersion5() = checkUpgraded(5)
+
+    @Test
+    fun desdeVersion6() = checkUpgraded(6)
 }

@@ -39,6 +39,15 @@ interface ScheduleDao {
 
     @Query("DELETE FROM schedules")
     suspend fun deleteAll()
+
+    @Query("UPDATE schedules SET freeLocked = :locked WHERE id IN (:ids)")
+    suspend fun setFreeLocked(ids: List<Long>, locked: Boolean)
+
+    @Query("UPDATE schedules SET freeLocked = 0")
+    suspend fun clearFreeLocked()
+
+    @Query("UPDATE schedules SET isActive = 0")
+    suspend fun clearActive()
 }
 
 @Dao
@@ -54,6 +63,9 @@ interface ActivityDao {
 
     @Query("SELECT * FROM activities")
     suspend fun getAll(): List<ActivityEntity>
+
+    @Query("SELECT * FROM activities")
+    fun observeAll(): Flow<List<ActivityEntity>>
 
     @Query("UPDATE activities SET tracked = :tracked WHERE id = :id")
     suspend fun setTracked(id: Long, tracked: Boolean)

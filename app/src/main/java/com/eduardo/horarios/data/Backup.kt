@@ -31,6 +31,8 @@ data class ScheduleExport(
     val activities: List<ActivityExport>,
     val autoFrom: Long? = null,
     val autoTo: Long? = null,
+    /** Bloqueado 🔒 sin Pro (se guarda en la copia para que restaurarla no lo desbloquee). */
+    val freeLocked: Boolean = false,
 )
 
 /** Contenido de un archivo .json de Horarios. */
@@ -102,6 +104,7 @@ object BackupFormat {
                             put("autoFrom", s.autoFrom)
                             put("autoTo", s.autoTo)
                         }
+                        if (s.freeLocked) put("freeLocked", true)
                     }
             )
         }
@@ -167,6 +170,7 @@ object BackupFormat {
                 activities = acts,
                 autoFrom = if (s.has("autoFrom") && s.has("autoTo")) s.optLong("autoFrom") else null,
                 autoTo = if (s.has("autoFrom") && s.has("autoTo")) s.optLong("autoTo") else null,
+                freeLocked = s.optBoolean("freeLocked", false),
             )
         }
         if (schedules.isEmpty()) throw InvalidFileException()

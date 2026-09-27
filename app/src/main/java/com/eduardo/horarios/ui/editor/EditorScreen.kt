@@ -88,6 +88,9 @@ import com.eduardo.horarios.longDate
 import java.time.Instant
 import java.time.LocalDate
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.pro.Paywall
+import com.eduardo.horarios.pro.PaywallReason
+import com.eduardo.horarios.pro.Pro
 import com.eduardo.horarios.data.Rotation
 import java.time.ZoneOffset
 import com.eduardo.horarios.R
@@ -220,6 +223,9 @@ fun EditorScreen(
             Column {
                 SectionLabel(stringResource(R.string.repeat))
                 val alternate = !form.oneOff && !form.rotation && form.weekParity != WeekParity.EVERY
+                // Semanas alternas y turnos son de Pro
+                val isPro by Pro.state.collectAsState()
+                val lockMark = if (isPro.active) "" else " 🔒"
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -227,7 +233,8 @@ fun EditorScreen(
                     ChoiceChip(stringResource(R.string.repeat_weekly), !form.oneOff && !form.rotation && form.weekParity == WeekParity.EVERY, accent, Modifier.testTag("repeat_weekly")) {
                         vm.update { copy(oneOff = false, rotation = false, weekParity = WeekParity.EVERY) }
                     }
-                    ChoiceChip(stringResource(R.string.repeat_alternate), alternate, accent, Modifier.testTag("repeat_alternate")) {
+                    ChoiceChip(stringResource(R.string.repeat_alternate) + lockMark, alternate, accent, Modifier.testTag("repeat_alternate")) {
+                        if (!isPro.active) return@ChoiceChip Paywall.show(PaywallReason.ALTERNATE)
                         // Por defecto, la semana en la que se está mirando (la de la fecha elegida)
                         vm.update {
                             copy(
@@ -237,7 +244,8 @@ fun EditorScreen(
                             )
                         }
                     }
-                    ChoiceChip(stringResource(R.string.repeat_rotation), !form.oneOff && form.rotation, accent, Modifier.testTag("repeat_rotation")) {
+                    ChoiceChip(stringResource(R.string.repeat_rotation) + lockMark, !form.oneOff && form.rotation, accent, Modifier.testTag("repeat_rotation")) {
+                        if (!isPro.active) return@ChoiceChip Paywall.show(PaywallReason.ROTATION)
                         vm.update { copy(oneOff = false, rotation = true) }
                     }
                     ChoiceChip(stringResource(R.string.repeat_once), form.oneOff, accent, Modifier.testTag("repeat_once")) {

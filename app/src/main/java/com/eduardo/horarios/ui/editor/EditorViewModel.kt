@@ -16,6 +16,8 @@ import com.eduardo.horarios.data.ActivityEntity
 import com.eduardo.horarios.data.HorariosRepository
 import com.eduardo.horarios.data.Tracking
 import com.eduardo.horarios.data.WeekParity
+import com.eduardo.horarios.pro.Paywall
+import com.eduardo.horarios.pro.PaywallReason
 import com.eduardo.horarios.data.isRotation
 import java.time.LocalDate
 import com.eduardo.horarios.todayIndex
@@ -145,7 +147,7 @@ class EditorViewModel(
                 error = R.string.error_no_active_schedule
                 return@launch
             }
-            repo.saveActivity(
+            val saved = repo.saveActivity(
                 ActivityEntity(
                     id = original?.id ?: 0L,
                     scheduleId = scheduleId,
@@ -170,6 +172,11 @@ class EditorViewModel(
                     rotOff = if (!f.oneOff && f.rotation) f.rotOff else 0,
                 )
             )
+            // Sin Pro no se guardan semanas alternas ni turnos (por si acaso: los botones ya lo impiden)
+            if (!saved) {
+                Paywall.show(if (f.rotation) PaywallReason.ROTATION else PaywallReason.ALTERNATE)
+                return@launch
+            }
             onDone()
         }
     }

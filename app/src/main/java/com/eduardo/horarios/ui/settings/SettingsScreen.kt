@@ -67,6 +67,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eduardo.horarios.HorariosApp
 import com.eduardo.horarios.BuildConfig
 import com.eduardo.horarios.alarm.WeeklySummary
+import androidx.compose.material.icons.rounded.Lock
+import com.eduardo.horarios.pro.Paywall
+import com.eduardo.horarios.pro.PaywallReason
+import com.eduardo.horarios.pro.Pro
+import com.eduardo.horarios.pro.ProBilling
+import com.eduardo.horarios.pro.ProRules
+import com.eduardo.horarios.ui.pro.openManageSubscription
 import android.content.Context
 import android.net.Uri
 import android.provider.DocumentsContract
@@ -105,6 +112,8 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
     val accent by app.settings.accent.collectAsStateWithLifecycle()
     var language by remember { mutableStateOf(app.settings.language) }
     val updateState by UpdateManager.state.collectAsStateWithLifecycle()
+    val proState by Pro.state.collectAsStateWithLifecycle()
+    val isPro = proState.active
     var alarmMode by remember { mutableStateOf(app.scheduler.alarmClockMode) }
     var startAlerts by remember { mutableStateOf(app.scheduler.startAlerts) }
     var weeklySummary by remember { mutableStateOf(WeeklySummary.isEnabled(context)) }
@@ -159,6 +168,9 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                 .navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // ---------- Horarios Pro (solo en la versión de Google Play) ----------
+            if (ProBilling.canPurchase) ProCard(isPro)
+
             // ---------- Apariencia ----------
             SectionLabel(stringResource(R.string.settings_appearance), Modifier.padding(top = 4.dp))
             SettingsCard {
@@ -186,7 +198,7 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(stringResource(R.string.settings_accent), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
                     Text(
-                        stringResource(Accents.getOrElse(accent) { Accents[0] }.nameRes),
+                        stringResource(Accents.getOrElse(if (isPro || ProRules.isAccentFree(accent)) accent else 0) { Accents[0] }.nameRes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -198,7 +210,9 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Accents.forEachIndexed { index, a ->
-                        val selected = index == accent
+                        // Sin Pro, solo los primeros colores
+                        val accentLocked = !isPro && !ProRules.isAccentFree(index)
+                        val selected = index == accent && !accentLocked
                         val c = if (dark) a.dark else a.light
                         Box(
                             modifier = Modifier
@@ -210,10 +224,20 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                                     color = if (selected) MaterialTheme.colorScheme.onSurface else Color.Transparent,
                                     shape = CircleShape,
                                 )
-                                .clickable { app.settings.setAccent(index) },
+                                .clickable {
+                                    if (accentLocked) Paywall.show(PaywallReason.COLORS) else app.settings.setAccent(index)
+                                }
+                                .testTag("accent_$index"),
                             contentAlignment = Alignment.Center,
                         ) {
-                            if (selected) {
+                            if (accentLocked) {
+                                Icon(
+                                    Icons.Rounded.Lock,
+                                    contentDescription = stringResource(R.string.locked),
+                                    tint = if (dark) Color.Black else Color.White,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            } else if (selected) {
                                 Icon(
                                     Icons.Rounded.Check,
                                     contentDescription = stringResource(a.nameRes),
@@ -280,7 +304,7 @@ fun SettingsScreen(onBack: (() -> Unit)?, onOpenNotifications: () -> Unit) {
                 }
             }
 
-            AutoBackupSection()
+            AutoBackupSection(isPro)
 
             // ---------- Avisos (lo que usa todo el mundo) ----------
             SectionLabel(stringResource(R.string.notifications_title), Modifier.padding(top = 8.dp))
@@ -413,7 +437,7 @@ private fun ThemeSegment(
 
 /** Copia automática diaria: activar, carpeta extra opcional y restaurar una de las últimas. */
 @Composable
-private fun AutoBackupSection() {
+private fun AutoBackupSection(isPro: Boolean) {
     val context = LocalContext.current
     val app = context.applicationContext as HorariosApp
     var enabled by remember { mutableStateOf(AutoBackup.isEnabled(context)) }
@@ -472,6 +496,14 @@ private fun AutoBackupSection() {
                     modifier = Modifier.padding(top = 6.dp).testTag("auto_backup_folder_hint"),
                 )
             }
+            if (folder != null && !isPro) {
+                Text(
+                    stringResource(R.string.auto_backup_folder_paused),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.testTag("auto_backup_folder_paused"),
+                )
+            }
             if (folder != null && folderError) {
                 Text(
                     stringResource(R.string.auto_backup_folder_error),
@@ -482,10 +514,18 @@ private fun AutoBackupSection() {
             Spacer(Modifier.height(10.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 OutlinedButton(
-                    onClick = { folderLauncher.launch(null) },
+                    onClick = {
+                        // Guardar en una carpeta (Drive…) es de Pro
+                        if (isPro) folderLauncher.launch(null) else Paywall.show(PaywallReason.BACKUP_FOLDER)
+                    },
                     shape = RoundedCornerShape(14.dp),
                     modifier = Modifier.weight(1f),
-                ) { Text(stringResource(if (folder == null) R.string.auto_backup_folder_pick else R.string.auto_backup_folder_change)) }
+                ) {
+                    Text(
+                        stringResource(if (folder == null) R.string.auto_backup_folder_pick else R.string.auto_backup_folder_change) +
+                            if (isPro) "" else " 🔒",
+                    )
+                }
                 if (folder != null) {
                     TextButton(onClick = {
                         AutoBackup.setFolder(context, null)
@@ -594,3 +634,32 @@ private fun backupDateLabel(context: Context, file: File): String {
 /** Nombre corto de la carpeta elegida («Download», «Drive/Horarios»…). */
 private fun folderLabel(uri: Uri): String =
     runCatching { DocumentsContract.getTreeDocumentId(uri).substringAfter(':').ifBlank { "/" } }.getOrDefault(uri.lastPathSegment ?: "")
+
+/** Tarjeta de Horarios Pro en Ajustes: estado y botón para suscribirse o gestionar la suscripción. */
+@Composable
+private fun ProCard(isPro: Boolean) {
+    val context = LocalContext.current
+    Surface(
+        onClick = { if (isPro) openManageSubscription(context) else Paywall.show(PaywallReason.GENERAL) },
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier.fillMaxWidth().testTag("pro_card"),
+    ) {
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text("✨", style = MaterialTheme.typography.headlineSmall)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(if (isPro) R.string.pro_active_title else R.string.pro_card_title),
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    stringResource(if (isPro) R.string.pro_active_text else R.string.pro_card_text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null)
+        }
+    }
+}

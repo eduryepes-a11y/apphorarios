@@ -63,6 +63,12 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.LaunchedEffect
+import com.eduardo.horarios.pro.Paywall
+import com.eduardo.horarios.pro.PaywallReason
+import com.eduardo.horarios.pro.Pro
+import com.eduardo.horarios.pro.ProRules
+import com.eduardo.horarios.ui.pro.ProBadge
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.eduardo.horarios.R
 import com.eduardo.horarios.data.DayCell
@@ -88,6 +94,11 @@ fun StatsScreen(
     DefaultStatusBarIcons()
     val state by vm.state.collectAsStateWithLifecycle()
     val period by vm.period.collectAsStateWithLifecycle()
+    // Progreso completo (90 días, constancia y CSV) es de Pro
+    val pro by Pro.state.collectAsStateWithLifecycle()
+    val isPro = pro.active
+    LaunchedEffect(isPro, period) { if (!isPro && period !in ProRules.FREE_PERIODS) vm.period.value = 28 }
+    val lockMark = if (isPro) "" else " 🔒"
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -165,7 +176,9 @@ fun StatsScreen(
                 Row(Modifier.padding(4.dp)) {
                     PeriodSegment(stringResource(R.string.stats_7_days), period == 7, Modifier.weight(1f).testTag("period_7")) { vm.period.value = 7 }
                     PeriodSegment(stringResource(R.string.stats_28_days), period == 28, Modifier.weight(1f).testTag("period_28")) { vm.period.value = 28 }
-                    PeriodSegment(stringResource(R.string.stats_90_days), period == 90, Modifier.weight(1f).testTag("period_90")) { vm.period.value = 90 }
+                    PeriodSegment(stringResource(R.string.stats_90_days) + lockMark, period == 90, Modifier.weight(1f).testTag("period_90")) {
+                        if (isPro) vm.period.value = 90 else Paywall.show(PaywallReason.STATS)
+                    }
                 }
             }
 
@@ -199,7 +212,32 @@ fun StatsScreen(
             if (!state.anyTracked) {
                 InfoCard(stringResource(R.string.stats_no_activities))
             } else {
-                ConsistencyCard(result, empty = !state.anyCompletion)
+                if (isPro) {
+                    ConsistencyCard(result, empty = !state.anyCompletion)
+                } else {
+                    // Sin Pro: se explica qué es y se ofrece Pro
+                    Surface(
+                        onClick = { Paywall.show(PaywallReason.STATS) },
+                        color = MaterialTheme.colorScheme.surface,
+                        shape = RoundedCornerShape(20.dp),
+                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                        modifier = Modifier.fillMaxWidth().testTag("consistency_locked"),
+                    ) {
+                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("🔒", fontSize = 22.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(stringResource(R.string.stats_consistency_pro_title), style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    stringResource(R.string.stats_consistency_pro_text),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            ProBadge()
+                        }
+                    }
+                }
 
                 // ---------- Tus hábitos ----------
                 if (result.habits.isNotEmpty()) {
@@ -215,7 +253,9 @@ fun StatsScreen(
 
             // ---------- Exportar ----------
             OutlinedButton(
-                onClick = { exportLauncher.launch("horarios-${java.time.LocalDate.now()}.csv") },
+                onClick = {
+                    if (isPro) exportLauncher.launch("horarios-${java.time.LocalDate.now()}.csv") else Paywall.show(PaywallReason.STATS)
+                },
                 shape = RoundedCornerShape(14.dp),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -224,7 +264,7 @@ fun StatsScreen(
             ) {
                 Icon(Icons.Rounded.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.stats_export))
+                Text(stringResource(R.string.stats_export) + lockMark)
             }
             Text(
                 stringResource(R.string.stats_export_text),

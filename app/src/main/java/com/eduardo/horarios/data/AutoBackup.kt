@@ -97,7 +97,8 @@ object AutoBackup {
                     tmp.delete()
                 }
                 AutoBackupFiles.toPrune(dir.list()?.toList() ?: emptyList()).forEach { File(dir, it).delete() }
-                folder(context)?.let { tree ->
+                // Guardar también en una carpeta (Drive…) es de Pro
+                folder(context)?.takeIf { com.eduardo.horarios.pro.Pro.isActive }?.let { tree ->
                     val ok = runCatching { writeToFolder(context, tree, json) }.getOrDefault(false)
                     prefs(context).edit().putBoolean(KEY_FOLDER_ERROR, !ok).apply()
                 }

@@ -18,6 +18,8 @@ data class ScheduleEntity(
     /** Fechas automáticas (epochDay, ambas incluidas): entre ellas este horario se activa solo. */
     val autoFrom: Long? = null,
     val autoTo: Long? = null,
+    /** Sin Pro: bloqueado 🔒 porque no se eligió al terminar la suscripción (ver ProRules). */
+    @ColumnInfo(defaultValue = "0") val freeLocked: Boolean = false,
 ) {
     val hasAutoRange: Boolean get() = autoFrom != null && autoTo != null
 }
