@@ -98,7 +98,7 @@ class AppTourTest {
             compose.clickFirst(tab(s(R.string.tab_today)))
 
             // ---------- Hoy (lunes de esta semana) ----------
-            DaySelection.select(monday)
+            compose.selectDay(monday)
             val classes = s(R.string.tpl_act_classes)
             compose.waitFor(card(classes))
             compose.waitFor(card(s(R.string.tpl_act_study)))
@@ -133,7 +133,7 @@ class AppTourTest {
 
             // ---------- Actividad de un solo día (el miércoles) ----------
             val wednesday = monday.plusDays(2)
-            DaySelection.select(wednesday)
+            compose.selectDay(wednesday)
             compose.waitFor(card(classes))
             compose.clickFirst(hasTestTag("fab_add"))
             compose.waitFor(hasTestTag("repeat_once"))
@@ -149,13 +149,13 @@ class AppTourTest {
             compose.waitFor(card(oneOffTitle))
             shot("09_evento_miercoles")
             // La semana siguiente ya no aparece
-            DaySelection.select(wednesday.plusDays(7))
+            compose.selectDay(wednesday.plusDays(7))
             compose.waitFor(card(classes))
             compose.waitGone(card(oneOffTitle))
 
             // ---------- Semanas alternas (el viernes, solo esta semana y dentro de dos) ----------
             val friday = monday.plusDays(4)
-            DaySelection.select(friday)
+            compose.selectDay(friday)
             compose.waitFor(card(classes))
             compose.clickFirst(hasTestTag("fab_add"))
             compose.waitFor(hasTestTag("repeat_alternate"))
@@ -169,14 +169,14 @@ class AppTourTest {
             compose.clickFirst(hasText(s(R.string.save)))
             compose.waitFor(card(alternateTitle))
             compose.waitFor(hasText(s(R.string.week_label, letter), substring = true))
-            DaySelection.select(friday.plusDays(7))
+            compose.selectDay(friday.plusDays(7))
             compose.waitFor(card(classes))
             compose.waitGone(card(alternateTitle))
-            DaySelection.select(friday.plusDays(14))
+            compose.selectDay(friday.plusDays(14))
             compose.waitFor(card(alternateTitle))
 
             // ---------- Domingo vacío → pegar una lista ----------
-            DaySelection.select(monday.plusDays(6))
+            compose.selectDay(monday.plusDays(6))
             compose.waitFor(hasText(s(R.string.bulk_add_link)))
             shot("10_dia_vacio")
             compose.clickFirst(hasText(s(R.string.bulk_add_link)))
@@ -191,7 +191,7 @@ class AppTourTest {
             shot("12_domingo_con_lista")
 
             // ---------- Pestañas ----------
-            DaySelection.select(monday)
+            compose.selectDay(monday)
             compose.clickFirst(tab(s(R.string.tab_week)))
             compose.waitFor(hasText(s(R.string.this_week), substring = true))
             shot("13_semana")

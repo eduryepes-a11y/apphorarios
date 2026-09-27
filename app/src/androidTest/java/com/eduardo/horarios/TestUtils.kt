@@ -121,3 +121,13 @@ fun ComposeTestRule.clickFirst(matcher: SemanticsMatcher) {
     waitFor(matcher)
     onAllNodes(matcher).onFirst().performClick()
 }
+
+/**
+ * Cambia el día elegido en Hoy y espera a que la pantalla lo muestre. Sin esperar, un toque justo
+ * después (por ejemplo en «Añadir») podría usar todavía el día anterior.
+ */
+fun ComposeTestRule.selectDay(date: java.time.LocalDate) {
+    com.eduardo.horarios.ui.home.DaySelection.select(date)
+    waitForIdle()
+    waitFor(androidx.compose.ui.test.hasTestTag("day_${date.toEpochDay()}"))
+}

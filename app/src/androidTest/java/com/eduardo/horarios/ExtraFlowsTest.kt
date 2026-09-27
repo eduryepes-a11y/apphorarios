@@ -274,7 +274,7 @@ class ExtraFlowsTest {
         newSchedule()
         val today = LocalDate.now()
         T.launch(compose, "turnos", language = "es") {
-            DaySelection.select(today)
+            compose.selectDay(today)
             // ---------- Turnos: 2 días sí, 2 no, empezando hoy ----------
             compose.clickFirst(hasTestTag("fab_add"))
             compose.clickFirst(hasTestTag("repeat_rotation"))
@@ -288,15 +288,15 @@ class ExtraFlowsTest {
             T.shot(compose, "turnos_1_editor")
             compose.clickFirst(hasText(s(R.string.save)))
             compose.waitFor(card("Guardia"))
-            DaySelection.select(today.plusDays(1))
+            compose.selectDay(today.plusDays(1))
             compose.waitFor(card("Guardia"))
-            DaySelection.select(today.plusDays(2))
+            compose.selectDay(today.plusDays(2))
             compose.waitGone(card("Guardia"))
-            DaySelection.select(today.plusDays(4))
+            compose.selectDay(today.plusDays(4))
             compose.waitFor(card("Guardia"))
 
             // ---------- Semanas alternas con ciclo de 3 (esta semana) ----------
-            DaySelection.select(today)
+            compose.selectDay(today)
             compose.clickFirst(hasTestTag("fab_add"))
             compose.clickFirst(hasTestTag("repeat_alternate"))
             compose.clickFirst(hasTestTag("cycle_3"))
@@ -310,14 +310,14 @@ class ExtraFlowsTest {
             compose.waitFor(card("Noches"))
             // La cabecera dice qué semana del ciclo es
             compose.waitFor(hasText(s(R.string.week_label, letter), substring = true))
-            DaySelection.select(today.plusWeeks(1))
+            compose.selectDay(today.plusWeeks(1))
             compose.waitGone(card("Noches"))
-            DaySelection.select(today.plusWeeks(3))
+            compose.selectDay(today.plusWeeks(3))
             compose.waitFor(card("Noches"))
             T.shot(compose, "turnos_3_tres_semanas_despues")
 
             // ---------- «Esta semana es la…»: ajustar las letras a las de la vida real ----------
-            DaySelection.select(today)
+            compose.selectDay(today)
             compose.waitFor(card("Noches"))
             compose.clickFirst(hasTestTag("fab_add"))
             compose.clickFirst(hasTestTag("repeat_alternate"))
@@ -338,7 +338,7 @@ class ExtraFlowsTest {
             compose.waitFor(hasText(s(R.string.week_label, newLetter), substring = true))
             // …y está en la semana que ahora tiene su letra
             val nochesWeek = (1L..2L).first { WeekParity.letter(WeekParity.of(today.plusWeeks(it), 3)) == letter }
-            DaySelection.select(today.plusWeeks(nochesWeek))
+            compose.selectDay(today.plusWeeks(nochesWeek))
             compose.waitFor(card("Noches"))
             T.shot(compose, "turnos_6_noches_en_su_semana")
         }

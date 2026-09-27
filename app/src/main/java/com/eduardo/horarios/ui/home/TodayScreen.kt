@@ -704,7 +704,11 @@ private fun DayTitle(
     ) {
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(dayName(context, date.dayOfWeek.value - 1), style = MaterialTheme.typography.titleLarge)
+                Text(
+                    dayName(context, date.dayOfWeek.value - 1),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.testTag("day_${date.toEpochDay()}"),
+                )
                 if (date == LocalDate.now()) {
                     Spacer(Modifier.width(8.dp))
                     Pill(stringResource(R.string.today_badge), MaterialTheme.colorScheme.primary)

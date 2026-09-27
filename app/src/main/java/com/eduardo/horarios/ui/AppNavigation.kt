@@ -128,9 +128,9 @@ fun AppNavigation(showOnboarding: Boolean) {
             ) {
                 TodayScreen(
                     onOpenSchedules = { nav.goToTab(Tab.SCHEDULES.route) },
-                    onAddActivity = { day -> nav.navigate("editor?day=$day&date=${DaySelection.date.value.toEpochDay()}") },
+                    onAddActivity = { _ -> nav.addActivityForSelectedDay() },
                     onEditActivity = { id -> nav.navigate("editor?activityId=$id") },
-                    onBulkAdd = { day -> nav.navigate("bulk?day=$day") },
+                    onBulkAdd = { _ -> nav.navigate("bulk?day=${DaySelection.date.value.dayOfWeek.value - 1}") },
                 )
             }
             composable(
@@ -140,7 +140,7 @@ fun AppNavigation(showOnboarding: Boolean) {
             ) {
                 WeekScreen(
                     onOpenDay = { nav.goToTab(Tab.TODAY.route) },
-                    onAddActivity = { day -> nav.navigate("editor?day=$day&date=${DaySelection.date.value.toEpochDay()}") },
+                    onAddActivity = { _ -> nav.addActivityForSelectedDay() },
                     onEditActivity = { id -> nav.navigate("editor?activityId=$id") },
                 )
             }
@@ -202,4 +202,13 @@ fun AppNavigation(showOnboarding: Boolean) {
         }
     }
     ImportHandler()
+}
+
+/**
+ * Nueva actividad en el día elegido. El día de la semana sale de la misma fecha para que nunca
+ * queden desparejados (si se cambia de día y se pulsa «Añadir» muy rápido).
+ */
+private fun NavHostController.addActivityForSelectedDay() {
+    val d = DaySelection.date.value
+    navigate("editor?day=${d.dayOfWeek.value - 1}&date=${d.toEpochDay()}")
 }
