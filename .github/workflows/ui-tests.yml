@@ -18,6 +18,10 @@ jobs:
   emulator:
     runs-on: ubuntu-latest
     timeout-minutes: 50
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [34, 36]
     steps:
       - uses: actions/checkout@v4
 
@@ -39,10 +43,10 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleGithubDebug assembleGithubDebugAndroidTest -PappVersionName=99.0.0 --stacktrace
 
-      - name: Pruebas en el emulador (Android 14)
+      - name: Pruebas en el emulador (API ${{ matrix.api }})
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 34
+          api-level: ${{ matrix.api }}
           arch: x86_64
           target: google_apis
           profile: pixel_6
@@ -67,7 +71,7 @@ jobs:
           PY
 
       - name: Publicar capturas en la rama ui-screenshots
-        if: always()
+        if: always() && matrix.api == 36
         run: |
           mkdir -p "$RUNNER_TEMP/shots"
           find app/build/outputs -path '*additional_output*' \( -name '*.png' -o -name '*.txt' \) -exec cp {} "$RUNNER_TEMP/shots/" \; || true
@@ -89,7 +93,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pruebas-emulador
+          name: pruebas-emulador-api${{ matrix.api }}
           path: |
             app/build/outputs/connected_android_test_additional_output/
             app/build/reports/androidTests/

@@ -16,12 +16,12 @@ val keystoreFile: String? = System.getenv("KEYSTORE_FILE")
 
 android {
     namespace = "com.eduardo.horarios"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.eduardo.horarios"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersionName
 
