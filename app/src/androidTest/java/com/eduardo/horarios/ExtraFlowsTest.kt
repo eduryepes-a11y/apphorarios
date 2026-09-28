@@ -42,6 +42,12 @@ class ExtraFlowsTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
+    /** Estas pruebas usan funciones de Pro: se prueban con Pro activo (en cualquier variante). */
+    @org.junit.Before
+    fun conPro() {
+        com.eduardo.horarios.pro.Pro.setForTests(true)
+    }
+
     private val repo get() = T.app.repository
 
     /** Crea un horario vacío y activo. */

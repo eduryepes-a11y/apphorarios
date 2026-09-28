@@ -41,7 +41,8 @@ class ReminderReceiver : BroadcastReceiver() {
                 when {
                     activity == null ->
                         AlarmLog.add(context, r.getString(R.string.log_missing, label))
-                    active?.id != activity.scheduleId ->
+                    // Horario no activo, o bloqueado sin Pro: no avisa
+                    active?.id != activity.scheduleId || app.repository.currentFreeState().isLocked(activity.scheduleId) ->
                         AlarmLog.add(context, r.getString(R.string.log_inactive, label, activity.title))
                     kind !in app.scheduler.kindsFor(activity) || day !in activity.weekDays() ->
                         AlarmLog.add(context, r.getString(R.string.log_not_due, label, activity.title))

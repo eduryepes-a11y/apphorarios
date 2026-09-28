@@ -16,6 +16,7 @@ data class ProState(val active: Boolean, val known: Boolean)
 object Pro {
     private const val PREFS = "pro"
     private const val KEY_ACTIVE = "active"
+    private const val KEY_VERIFIED_AT = "verified_at"
 
     private val _state = MutableStateFlow(ProState(active = false, known = false))
     val state: StateFlow<ProState> = _state.asStateFlow()
@@ -30,7 +31,11 @@ object Pro {
     fun init(context: Context) {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         if (testOverride == null && prefs.contains(KEY_ACTIVE)) {
-            _state.value = ProState(prefs.getBoolean(KEY_ACTIVE, false), known = true)
+            val active = prefs.getBoolean(KEY_ACTIVE, false)
+            val fresh = ProRules.isCacheFresh(prefs.getLong(KEY_VERIFIED_AT, 0), System.currentTimeMillis())
+            // Un «Pro» guardado hace demasiado sin comprobar no vale (por ejemplo, si se bloquea Google Play):
+            // hasta que Google Play conteste se usa como gratis, pero sin bloquear nada
+            _state.value = if (active && !fresh) ProState(false, known = false) else ProState(active, known = true)
         }
         ProBilling.init(context.applicationContext)
     }
@@ -38,7 +43,10 @@ object Pro {
     /** Lo llama la tienda cuando sabe si hay suscripción. */
     fun update(context: Context, active: Boolean) {
         if (testOverride != null) return
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ACTIVE, active).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_ACTIVE, active)
+            .putLong(KEY_VERIFIED_AT, System.currentTimeMillis())
+            .apply()
         _state.value = ProState(active, known = true)
     }
 

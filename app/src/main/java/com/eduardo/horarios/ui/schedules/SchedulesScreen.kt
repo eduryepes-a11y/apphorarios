@@ -33,6 +33,7 @@ import com.eduardo.horarios.pro.FreeState
 import com.eduardo.horarios.pro.LockReason
 import com.eduardo.horarios.pro.Paywall
 import com.eduardo.horarios.pro.PaywallReason
+import com.eduardo.horarios.pro.Pro
 import com.eduardo.horarios.ui.pro.ProBadge
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DateRangePicker
@@ -125,7 +126,7 @@ data class SchedulesState(
     val schedules: List<ScheduleEntity> = emptyList(),
     val counts: Map<Long, Int> = emptyMap(),
     /** Qué está bloqueado 🔒 sin Pro. */
-    val free: FreeState = FreeState(true, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = true),
+    val free: FreeState = FreeState(Pro.isActive, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = Pro.isActive),
 )
 
 class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
@@ -133,13 +134,14 @@ class SchedulesViewModel(private val repo: HorariosRepository) : ViewModel() {
         SchedulesState(s, c, f)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), SchedulesState())
 
-    fun activate(s: ScheduleEntity) = viewModelScope.launch { repo.activate(s.id) }
+    fun activate(s: ScheduleEntity, onDone: (Boolean) -> Unit) = viewModelScope.launch { onDone(repo.activate(s.id)) }
     fun create(name: String, emoji: String, color: Int) =
         viewModelScope.launch { repo.createSchedule(name, emoji, color) }
     fun update(s: ScheduleEntity) = viewModelScope.launch { repo.updateSchedule(s) }
     fun duplicate(s: ScheduleEntity) = viewModelScope.launch { repo.duplicateSchedule(s) }
     fun delete(s: ScheduleEntity) = viewModelScope.launch { repo.deleteSchedule(s) }
-    fun createFromTemplate(t: ScheduleTemplate) = viewModelScope.launch { repo.createFromTemplate(t, activate = false) }
+    fun createFromTemplate(t: ScheduleTemplate, onDone: (Boolean) -> Unit) =
+        viewModelScope.launch { onDone(repo.createFromTemplate(t, activate = false) != null) }
     fun setAutoRange(s: ScheduleEntity, from: Long?, to: Long?) = viewModelScope.launch { repo.setAutoRange(s.id, from, to) }
     fun share(context: Context, s: ScheduleEntity) = viewModelScope.launch { BackupIO.shareSchedule(context, repo, s) }
 
@@ -236,8 +238,10 @@ fun SchedulesScreen(
                         if (lock != null) {
                             Paywall.show(PaywallReason.LOCKED_SCHEDULE)
                         } else if (!s.isActive) {
-                            vm.activate(s)
-                            scope.launch { snackbar.showSnackbar(context.getString(R.string.schedule_activated, s.name)) }
+                            vm.activate(s) { ok ->
+                                if (ok) scope.launch { snackbar.showSnackbar(context.getString(R.string.schedule_activated, s.name)) }
+                                else Paywall.show(PaywallReason.LOCKED_SCHEDULE)
+                            }
                         }
                     },
                     onEdit = { editing = s },
@@ -274,8 +278,10 @@ fun SchedulesScreen(
                 TemplateList(
                     onPick = { t ->
                         choosingTemplate = false
-                        vm.createFromTemplate(t)
-                        scope.launch { snackbar.showSnackbar(context.getString(R.string.template_created, context.getString(t.nameRes))) }
+                        vm.createFromTemplate(t) { ok ->
+                            if (ok) scope.launch { snackbar.showSnackbar(context.getString(R.string.template_created, context.getString(t.nameRes))) }
+                            else Paywall.show(PaywallReason.SCHEDULES)
+                        }
                     },
                     onBlank = {
                         choosingTemplate = false

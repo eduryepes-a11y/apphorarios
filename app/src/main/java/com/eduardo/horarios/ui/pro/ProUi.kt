@@ -93,6 +93,8 @@ fun PaywallHost() {
     val status by ProBilling.status.collectAsStateWithLifecycle()
     // Si se acaba de comprar, se cierra sola
     LaunchedEffect(pro.active) { if (pro.active) Paywall.close() }
+    // Al abrirla, se vuelve a preguntar a Google Play por el precio (por si se cortó la conexión)
+    LaunchedEffect(Unit) { ProBilling.refresh() }
     if (pro.active) return
     ModalBottomSheet(
         onDismissRequest = { Paywall.close() },
@@ -138,6 +140,18 @@ fun PaywallHost() {
             )
             Spacer(Modifier.height(20.dp))
             val o = offer
+            // Condiciones bien visibles antes del botón: precio, prueba y renovación automática
+            Text(
+                when {
+                    o != null && o.trialDays > 0 -> stringResource(R.string.pro_price_after_trial, o.trialDays, o.price)
+                    o != null -> stringResource(R.string.pro_price_monthly, o.price)
+                    status == StoreStatus.CONNECTING -> stringResource(R.string.pro_connecting)
+                    else -> stringResource(R.string.pro_store_unavailable)
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp).testTag("paywall_price"),
+            )
             val canBuy = ProBilling.canPurchase && o != null && status == StoreStatus.READY
             Button(
                 onClick = {
@@ -157,17 +171,6 @@ fun PaywallHost() {
                     style = MaterialTheme.typography.titleSmall,
                 )
             }
-            Text(
-                when {
-                    o != null && o.trialDays > 0 -> stringResource(R.string.pro_price_after_trial, o.trialDays, o.price)
-                    o != null -> stringResource(R.string.pro_price_monthly, o.price)
-                    status == StoreStatus.CONNECTING -> stringResource(R.string.pro_connecting)
-                    else -> stringResource(R.string.pro_store_unavailable)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).testTag("paywall_price"),
-            )
             TextButton(onClick = { Paywall.close() }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
                 Text(stringResource(R.string.pro_not_now))
             }
@@ -201,6 +204,9 @@ fun FreeChoiceHandler() {
     if (!state.known || !state.needsChoice) return
     var selected by remember { mutableStateOf(setOf<Long>()) }
     var confirming by remember { mutableStateOf(false) }
+    // Mientras se guarda la elección no se muestra ningún diálogo (para que no vuelva a asomar el primero)
+    var submitting by remember { mutableStateOf(false) }
+    if (submitting) return
 
     if (!confirming) {
         AlertDialog(
@@ -244,8 +250,16 @@ fun FreeChoiceHandler() {
                 ) { Text(stringResource(R.string.pro_choice_keep)) }
             },
             dismissButton = {
-                TextButton(onClick = { Paywall.show(PaywallReason.LOCKED_SCHEDULE) }) {
-                    Text(stringResource(R.string.pro_back_to_pro))
+                Row {
+                    // «Ya pago»: vuelve a preguntar a Google Play (por si fue un error de conexión)
+                    if (ProBilling.canPurchase) {
+                        TextButton(onClick = { ProBilling.refresh() }, modifier = Modifier.testTag("restore_purchase")) {
+                            Text(stringResource(R.string.pro_restore))
+                        }
+                    }
+                    TextButton(onClick = { Paywall.show(PaywallReason.LOCKED_SCHEDULE) }) {
+                        Text(stringResource(R.string.pro_back_to_pro))
+                    }
                 }
             },
         )
@@ -259,8 +273,16 @@ fun FreeChoiceHandler() {
                 TextButton(
                     onClick = {
                         val keep = selected
-                        confirming = false
-                        app.appScope.launch { app.repository.keepSchedules(keep) }
+                        submitting = true
+                        app.appScope.launch {
+                            val ok = app.repository.keepSchedules(keep)
+                            if (!ok) {
+                                // No debería pasar; si pasa, se vuelve a pedir
+                                submitting = false
+                                confirming = false
+                                selected = emptySet()
+                            }
+                        }
                     },
                     modifier = Modifier.testTag("keep_final"),
                 ) { Text(stringResource(R.string.pro_choice_final)) }

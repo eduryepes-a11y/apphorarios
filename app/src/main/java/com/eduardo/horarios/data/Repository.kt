@@ -22,6 +22,7 @@ private const val KEY_TRACKING_DEFAULTS = "tracking_defaults_v13"
 private const val SWITCH_PREFS = "auto_switch"
 private const val KEY_LAST_DAY = "last_day"
 private const val KEY_BASE_ID = "base_id"
+private const val KEY_ACTIVE_BEFORE_LAPSE = "active_before_lapse"
 
 class HorariosRepository(
     private val context: Context,
@@ -45,11 +46,11 @@ class HorariosRepository(
 
     /** Qué está bloqueado 🔒 sin Pro (se recalcula al cambiar horarios, actividades o la suscripción). */
     val freeState: Flow<FreeState> = combine(scheduleDao.observeAll(), activityDao.observeAll(), Pro.state) { s, a, p ->
-        ProRules.evaluate(p.active, s, a).copy(known = p.known)
+        ProRules.evaluate(p.active, s, a, p.known)
     }
 
     suspend fun currentFreeState(): FreeState =
-        ProRules.evaluate(Pro.isActive, scheduleDao.getAll(), activityDao.getAll()).copy(known = Pro.state.value.known)
+        ProRules.evaluate(Pro.isActive, scheduleDao.getAll(), activityDao.getAll(), Pro.state.value.known)
 
     private val proMutex = Mutex()
 
@@ -59,13 +60,21 @@ class HorariosRepository(
      */
     suspend fun enforceFreeLimits() = proMutex.withLock {
         if (!Pro.state.value.known) return@withLock
+        val prefs = context.getSharedPreferences(SWITCH_PREFS, Context.MODE_PRIVATE)
         if (Pro.isActive) {
             if (scheduleDao.getAll().any { it.freeLocked }) scheduleDao.clearFreeLocked()
+            // Al volver a Pro, vuelve también el horario que estaba activo antes de terminar
+            if (prefs.contains(KEY_ACTIVE_BEFORE_LAPSE)) {
+                val before = prefs.getLong(KEY_ACTIVE_BEFORE_LAPSE, 0)
+                prefs.edit().remove(KEY_ACTIVE_BEFORE_LAPSE).apply()
+                if (scheduleDao.getAll().any { it.id == before }) scheduleDao.setActive(before)
+            }
         } else {
             val all = scheduleDao.getAll()
             val state = ProRules.evaluate(false, all, activityDao.getAll())
             val active = all.firstOrNull { it.isActive }
             if (active != null && state.isLocked(active.id)) {
+                if (!prefs.contains(KEY_ACTIVE_BEFORE_LAPSE)) prefs.edit().putLong(KEY_ACTIVE_BEFORE_LAPSE, active.id).apply()
                 val next = ProRules.fallbackActive(state, all)
                 if (next != null) scheduleDao.setActive(next) else scheduleDao.clearActive()
             }
@@ -87,6 +96,9 @@ class HorariosRepository(
 
     /** ¿Se puede crear otro horario ahora? (sin Pro, como mucho 2 normales sin bloquear) */
     suspend fun canCreateSchedule(): Boolean = currentFreeState().canCreate
+
+    /** Para que dos toques seguidos no creen un horario de más sin Pro. */
+    private val createMutex = Mutex()
 
     val activityCounts: Flow<Map<Long, Int>> =
         activityDao.observeCounts().map { list -> list.associate { it.scheduleId to it.count } }
@@ -179,11 +191,12 @@ class HorariosRepository(
     // ---------- Plantillas y alta rápida ----------
 
     /** Crea un horario a partir de una plantilla. Devuelve su id. */
-    suspend fun createFromTemplate(template: ScheduleTemplate, activate: Boolean): Long? {
-        if (!canCreateSchedule()) return null
+    suspend fun createFromTemplate(template: ScheduleTemplate, activate: Boolean): Long? = createMutex.withLock {
+        if (!canCreateSchedule()) return@withLock null
         val r = context.localized()
         val id = db.withTransaction {
-            val isFirst = scheduleDao.count() == 0
+            // Sin horario activo (el primero, o todos bloqueados), el nuevo pasa a ser el activo
+            val isFirst = scheduleDao.getActive() == null
             val newId = scheduleDao.insert(
                 ScheduleEntity(
                     name = r.getString(template.nameRes),
@@ -197,7 +210,7 @@ class HorariosRepository(
             newId
         }
         scheduler.rescheduleAll()
-        return id
+        id
     }
 
     /** Añade varias actividades de golpe al horario activo. */
@@ -212,6 +225,7 @@ class HorariosRepository(
     /** Activa un horario. No deja activar uno bloqueado 🔒 sin Pro (devuelve false). */
     suspend fun activate(id: Long): Boolean {
         if (currentFreeState().isLocked(id)) return false
+        context.getSharedPreferences(SWITCH_PREFS, Context.MODE_PRIVATE).edit().remove(KEY_ACTIVE_BEFORE_LAPSE).apply()
         scheduleDao.setActive(id)
         scheduler.rescheduleAll()
         return true
@@ -246,11 +260,9 @@ class HorariosRepository(
     suspend fun runAutoSwitch(today: Long = LocalDate.now().toEpochDay()): Boolean = switchMutex.withLock {
         val last = if (switchPrefs.contains(KEY_LAST_DAY)) switchPrefs.getLong(KEY_LAST_DAY, 0) else null
         if (last == today) return@withLock false
-        // Sin Pro no hay fechas automáticas (esos horarios están bloqueados)
-        if (!Pro.isActive) {
-            switchPrefs.edit().putLong(KEY_LAST_DAY, today).apply()
-            return@withLock false
-        }
+        // Sin Pro no hay fechas automáticas (esos horarios están bloqueados). No se apunta el día:
+        // si se vuelve a Pro hoy, se comprueba entonces
+        if (!Pro.isActive) return@withLock false
         val all = scheduleDao.getAll()
         val d = ScheduleSwitcher.onNewDay(last, today, all, all.firstOrNull { it.isActive }?.id, savedBaseId())
         applySwitch(d, today)
@@ -272,25 +284,28 @@ class HorariosRepository(
     }
 
     /** Crea un horario vacío. Devuelve null si sin Pro ya se ha llegado al límite. */
-    suspend fun createSchedule(name: String, emoji: String, colorIndex: Int): Long? {
-        if (!canCreateSchedule()) return null
-        val isFirst = scheduleDao.count() == 0
-        val id = scheduleDao.insert(
-            ScheduleEntity(name = name.trim(), emoji = emoji, colorIndex = colorIndex, isActive = isFirst)
-        )
-        if (isFirst) scheduler.rescheduleAll()
-        return id
+    suspend fun createSchedule(name: String, emoji: String, colorIndex: Int): Long? = createMutex.withLock {
+        if (!canCreateSchedule()) return@withLock null
+        // Sin horario activo (el primero, o todos bloqueados), el nuevo pasa a ser el activo
+        val isFirst = scheduleDao.getActive() == null
+        val id = scheduleDao.insert(ScheduleEntity(name = name.trim(), emoji = emoji, colorIndex = colorIndex))
+        if (isFirst) {
+            scheduleDao.setActive(id)
+            scheduler.rescheduleAll()
+        }
+        id
     }
 
+    /** Cambia nombre, icono y color (solo eso: no toca si está activo, bloqueado o sus fechas). */
     suspend fun updateSchedule(schedule: ScheduleEntity) {
-        scheduleDao.update(schedule.copy(name = schedule.name.trim()))
+        scheduleDao.updateLook(schedule.id, schedule.name.trim(), schedule.emoji, schedule.colorIndex)
         WidgetRefresher.refresh(context)
     }
 
     /** Duplica un horario. Devuelve false si sin Pro ya se ha llegado al límite (o es uno bloqueado). */
-    suspend fun duplicateSchedule(schedule: ScheduleEntity): Boolean {
+    suspend fun duplicateSchedule(schedule: ScheduleEntity): Boolean = createMutex.withLock {
         val state = currentFreeState()
-        if (!state.canCreate || state.isLocked(schedule.id)) return false
+        if (!state.canCreate || state.isLocked(schedule.id)) return@withLock false
         db.withTransaction {
             val newId = scheduleDao.insert(
                 schedule.copy(
@@ -306,7 +321,7 @@ class HorariosRepository(
             val copies = activityDao.getForSchedule(schedule.id).map { it.copy(id = 0, scheduleId = newId) }
             activityDao.insertAll(copies)
         }
-        return true
+        true
     }
 
     suspend fun deleteSchedule(schedule: ScheduleEntity) {
@@ -316,7 +331,10 @@ class HorariosRepository(
             activityDao.deleteForSchedule(schedule.id)
             scheduleDao.delete(schedule)
             if (schedule.isActive) {
-                scheduleDao.getAll().firstOrNull()?.let { scheduleDao.setActive(it.id) }
+                // El siguiente activo: el más antiguo que no esté bloqueado sin Pro
+                val rest = scheduleDao.getAll()
+                val st = ProRules.evaluate(Pro.isActive, rest, activityDao.getAll(), Pro.state.value.known)
+                ProRules.fallbackActive(st, rest)?.let { scheduleDao.setActive(it) }
             }
         }
         // Sin Pro, el que queda activo no puede ser uno bloqueado
@@ -419,10 +437,11 @@ class HorariosRepository(
                 activityDao.deleteAll()
                 scheduleDao.deleteAll()
             }
-            val hadSchedules = scheduleDao.count() > 0
+            val hadSchedules = scheduleDao.getActive() != null
             var activateId: Long? = null
             // Sin Pro: los que pasan del límite de horarios llegan bloqueados 🔒 (los que usan Pro ya lo están)
-            val isPro = Pro.isActive
+            // Si aún no se sabe si hay suscripción, no se bloquea nada (se hará al saberlo)
+            val isPro = Pro.isActive || !Pro.state.value.known
             val unlockedNormal = if (isPro) 0 else ProRules.evaluate(false, scheduleDao.getAll(), activityDao.getAll())
                 .let { st -> scheduleDao.getAll().count { !st.isLocked(it.id) } }
             val incomingPro = file.schedules.map { s -> s.autoFrom != null || s.activities.any { it.onDate == null && (it.weekParity != 0 || (it.rotStart != null && it.rotOn > 0)) } }

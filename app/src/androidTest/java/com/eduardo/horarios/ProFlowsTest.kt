@@ -20,6 +20,7 @@ import com.eduardo.horarios.pro.LockReason
 import com.eduardo.horarios.pro.Paywall
 import com.eduardo.horarios.pro.Pro
 import com.eduardo.horarios.pro.ProRules
+import com.eduardo.horarios.pro.ProBilling
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -58,8 +59,10 @@ class ProFlowsTest {
         compose.waitFor(hasTestTag("paywall"))
         compose.waitFor(hasText(s(reasonRes)))
         // En la variante GitHub no hay tienda: el botón de compra está desactivado y lo explica
-        compose.waitFor(hasText(s(R.string.pro_store_unavailable)))
-        compose.onNode(hasTestTag("paywall_buy")).assertIsNotEnabled()
+        if (!ProBilling.canPurchase) {
+            compose.waitFor(hasText(s(R.string.pro_store_unavailable)))
+            compose.onNode(hasTestTag("paywall_buy")).assertIsNotEnabled()
+        }
         shot?.let { T.shot(compose, it) }
         compose.onNode(hasText(s(R.string.pro_not_now))).performScrollTo().performClick()
         compose.waitGone(hasTestTag("paywall"))
@@ -127,7 +130,7 @@ class ProFlowsTest {
             // ---------- Ajustes: colores y copia en carpeta ----------
             compose.clickFirst(tab(s(R.string.tab_settings)))
             // En la variante GitHub no hay tarjeta de suscripción
-            compose.waitGone(hasTestTag("pro_card"))
+            if (!ProBilling.canPurchase) compose.waitGone(hasTestTag("pro_card"))
             val locked = "accent_${ProRules.FREE_ACCENTS}"
             compose.onNode(hasTestTag(locked)).performScrollTo().performClick()
             expectPaywall(R.string.pro_r_colors)
@@ -214,6 +217,14 @@ class ProFlowsTest {
             assertEquals(a, repo.getActiveSchedule()!!.id)
             assertFalse(repo.activate(d))
             assertEquals(a, repo.getActiveSchedule()!!.id)
+            // Renombrar con datos viejos (diálogo abierto desde antes) no desbloquea ni activa nada
+            val stale = T.app.database.scheduleDao().getAll().first { it.id == c }.copy(freeLocked = false, isActive = true, name = "Campo 2")
+            repo.updateSchedule(stale)
+            val renamed = T.app.database.scheduleDao().getAll().first { it.id == c }
+            assertEquals("Campo 2", renamed.name)
+            assertTrue(renamed.freeLocked)
+            assertFalse(renamed.isActive)
+            assertEquals(a, repo.getActiveSchedule()!!.id)
             // Los avisos solo son del horario activo (no del bloqueado)
             val next = T.app.scheduler.nextReminder()
             assertNotNull(next)
@@ -238,6 +249,8 @@ class ProFlowsTest {
             val st = repo.currentFreeState()
             assertTrue(st.locked.isEmpty())
             assertTrue(T.app.database.scheduleDao().getAll().none { it.freeLocked })
+            // Vuelve también el que estaba activo antes de terminar Pro («Dojo»)
+            assertEquals(d, repo.getActiveSchedule()!!.id)
             assertTrue(repo.activate(e))
         }
     }

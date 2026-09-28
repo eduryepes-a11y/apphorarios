@@ -431,6 +431,7 @@
     <string name="pro_active_text">Thanks for supporting the app. Tap to manage your subscription.</string>
     <string name="pro_card_title">Go Pro</string>
     <string name="pro_card_text">Alternate weeks, shifts, unlimited schedules and more.</string>
+    <string name="pro_restore">I already pay</string>
     <string-array name="days_short">
         <item>M</item>
         <item>T</item>

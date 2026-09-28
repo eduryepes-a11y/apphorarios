@@ -42,7 +42,11 @@ class HorariosApp : Application() {
         Pro.init(this)
         appScope.launch {
             // Al empezar o terminar Pro: bloquear o desbloquear horarios y reprogramar avisos
-            Pro.state.collect { repository.enforceFreeLimits() }
+            Pro.state.collect { p ->
+                repository.enforceFreeLimits()
+                // Con Pro (por ejemplo, al renovar hoy) se comprueban también las fechas automáticas
+                if (p.active) repository.runAutoSwitch()
+            }
         }
         // Quien ya usaba la app (versiones anteriores) no ve la bienvenida
         if (!settings.onboarded && getSharedPreferences("app", MODE_PRIVATE).getBoolean("seeded", false)) {

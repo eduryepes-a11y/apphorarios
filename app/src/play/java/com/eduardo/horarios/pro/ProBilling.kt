@@ -2,6 +2,8 @@ package com.eduardo.horarios.pro
 
 import android.app.Activity
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
@@ -43,6 +45,9 @@ object ProBilling : PurchasesUpdatedListener {
     private var client: BillingClient? = null
     @Volatile private var details: ProductDetails? = null
     @Volatile private var connecting = false
+    /** Respuestas seguidas de «no hay compra» mientras se tenía Pro (ver ProRules.confirmsLapse). */
+    @Volatile private var negatives = 0
+    private val main = Handler(Looper.getMainLooper())
 
     fun init(context: Context) {
         appContext = context.applicationContext
@@ -180,7 +185,29 @@ object ProBilling : PurchasesUpdatedListener {
                 }
             }
         }
-        Pro.update(appContext, ProRules.isEntitled(info, PRODUCT_ID))
+        val entitled = ProRules.isEntitled(info, PRODUCT_ID)
+        val state = Pro.state.value
+        when {
+            entitled -> {
+                negatives = 0
+                Pro.update(appContext, true)
+            }
+            // No tenía Pro (o no se sabía): nada que quitar
+            !state.active || !state.known -> {
+                negatives = 0
+                Pro.update(appContext, false)
+            }
+            else -> {
+                // Tenía Pro y Google dice que no: se confirma otra vez antes de quitarlo
+                negatives++
+                if (ProRules.confirmsLapse(negatives)) {
+                    negatives = 0
+                    Pro.update(appContext, false)
+                } else {
+                    main.postDelayed({ refresh() }, 5_000)
+                }
+            }
+        }
     }
 
     /** Página de Google Play para gestionar o cancelar la suscripción. */

@@ -178,4 +178,45 @@ class ProRulesTest {
         )
         assertEquals(listOf(0), ProRules.needsAcknowledge(list, id))
     }
+
+    @Test
+    fun unknownStoreStateLocksNothing() {
+        val s = listOf(sched(1), sched(2), sched(3, locked = true), sched(4, auto = true))
+        val st = ProRules.evaluate(false, s, listOf(act(1, 1, parity = 1)), known = false)
+        assertTrue(st.locked.isEmpty())
+        assertFalse(st.needsChoice)
+        assertFalse(st.known)
+        // Pero no deja crear más de la cuenta mientras tanto
+        assertFalse(st.canCreate)
+        assertTrue(ProRules.evaluate(false, listOf(sched(1)), emptyList(), known = false).canCreate)
+    }
+
+    @Test
+    fun lapseNeedsTwoAnswersInARow() {
+        assertFalse(ProRules.confirmsLapse(0))
+        assertFalse(ProRules.confirmsLapse(1))
+        assertTrue(ProRules.confirmsLapse(2))
+    }
+
+    @Test
+    fun cachedProExpiresAfterTwoWeeks() {
+        val day = 24L * 60 * 60 * 1000
+        val now = 100 * day
+        assertTrue(ProRules.isCacheFresh(now - day, now))
+        assertTrue(ProRules.isCacheFresh(now - 14 * day, now))
+        assertFalse(ProRules.isCacheFresh(now - 15 * day, now))
+        assertFalse(ProRules.isCacheFresh(0, now)) // nunca comprobado
+        assertFalse(ProRules.isCacheFresh(now + day, now)) // reloj cambiado hacia atrás
+    }
+
+    @Test
+    fun sameCreationTimeKeepsAStableOrder() {
+        val a = sched(5).copy(createdAt = 1)
+        val b = sched(3).copy(createdAt = 1)
+        val c = sched(4).copy(createdAt = 1)
+        val st = ProRules.evaluate(false, listOf(a, b, c), emptyList())
+        assertEquals(listOf(3L, 4L, 5L), st.choosable.map { it.id })
+        val kept = listOf(a.copy(freeLocked = true), b, c)
+        assertEquals(3L, ProRules.fallbackActive(ProRules.evaluate(false, kept, emptyList()), kept))
+    }
 }

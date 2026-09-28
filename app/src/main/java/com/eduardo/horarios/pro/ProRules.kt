@@ -60,11 +60,21 @@ object ProRules {
 
     fun isAccentFree(index: Int): Boolean = index in 0 until FREE_ACCENTS
 
-    fun evaluate(isPro: Boolean, schedules: List<ScheduleEntity>, activities: List<ActivityEntity>): FreeState {
-        if (isPro) return FreeState(true, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = true)
+    /** Orden estable: por fecha de creación y, si coinciden, por id. */
+    val oldestFirst = compareBy<ScheduleEntity>({ it.createdAt }, { it.id })
+
+    /**
+     * [known] = false: aún no se sabe si hay suscripción (Google Play no ha contestado). Entonces no se
+     * bloquea nada ni se pide elegir, para no molestar a quien sí paga; solo se limita crear horarios nuevos.
+     */
+    fun evaluate(isPro: Boolean, schedules: List<ScheduleEntity>, activities: List<ActivityEntity>, known: Boolean = true): FreeState {
+        if (isPro) return FreeState(true, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = true, known = known)
+        if (!known) {
+            return FreeState(false, emptyMap(), needsChoice = false, choosable = emptyList(), canCreate = schedules.size < FREE_SCHEDULES, known = false)
+        }
         val locked = LinkedHashMap<Long, LockReason>()
         val normal = mutableListOf<ScheduleEntity>()
-        for (s in schedules.sortedBy { it.createdAt }) {
+        for (s in schedules.sortedWith(oldestFirst)) {
             when {
                 usesPro(s, activities) -> locked[s.id] = LockReason.PRO_FEATURE
                 s.freeLocked -> locked[s.id] = LockReason.OVER_LIMIT
@@ -111,7 +121,21 @@ object ProRules {
 
     /** Horario a activar si el activo queda bloqueado: el más antiguo de los libres, o ninguno. */
     fun fallbackActive(state: FreeState, schedules: List<ScheduleEntity>): Long? =
-        schedules.sortedBy { it.createdAt }.firstOrNull { !state.isLocked(it.id) }?.id
+        schedules.sortedWith(oldestFirst).firstOrNull { !state.isLocked(it.id) }?.id
+
+    /**
+     * Para quitar Pro hacen falta [LAPSE_CONFIRMATIONS] respuestas seguidas de Google Play sin compra
+     * (una sola puede ser una caché vieja o una consulta que se cruzó con la compra).
+     */
+    const val LAPSE_CONFIRMATIONS = 2
+
+    fun confirmsLapse(consecutiveNegatives: Int): Boolean = consecutiveNegatives >= LAPSE_CONFIRMATIONS
+
+    /** Días que se fía de un «Pro activo» guardado sin volver a comprobarlo con Google Play. */
+    const val CACHE_DAYS = 14
+
+    fun isCacheFresh(verifiedAt: Long, now: Long): Boolean =
+        verifiedAt in 1..now && now - verifiedAt <= CACHE_DAYS * 24L * 60 * 60 * 1000
 
     /** Días de un periodo de Google Play: «P7D» → 7, «P1W» → 7, «P1M» → 30, «P1Y» → 365. 0 si no se entiende. */
     fun periodDays(period: String): Int {

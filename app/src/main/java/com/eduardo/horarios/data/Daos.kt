@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ScheduleDao {
-    @Query("SELECT * FROM schedules ORDER BY createdAt ASC")
+    @Query("SELECT * FROM schedules ORDER BY createdAt ASC, id ASC")
     fun observeAll(): Flow<List<ScheduleEntity>>
 
     @Query("SELECT * FROM schedules WHERE isActive = 1 LIMIT 1")
@@ -19,8 +19,12 @@ interface ScheduleDao {
     @Query("SELECT * FROM schedules WHERE isActive = 1 LIMIT 1")
     suspend fun getActive(): ScheduleEntity?
 
-    @Query("SELECT * FROM schedules ORDER BY createdAt ASC")
+    @Query("SELECT * FROM schedules ORDER BY createdAt ASC, id ASC")
     suspend fun getAll(): List<ScheduleEntity>
+
+    /** Cambia solo nombre, icono y color (sin tocar si está activo, bloqueado o sus fechas). */
+    @Query("UPDATE schedules SET name = :name, emoji = :emoji, colorIndex = :colorIndex WHERE id = :id")
+    suspend fun updateLook(id: Long, name: String, emoji: String, colorIndex: Int)
 
     @Query("SELECT COUNT(*) FROM schedules")
     suspend fun count(): Int

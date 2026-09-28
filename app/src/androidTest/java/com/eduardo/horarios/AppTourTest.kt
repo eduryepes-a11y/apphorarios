@@ -44,6 +44,12 @@ class AppTourTest {
     @get:Rule
     val compose = createEmptyComposeRule()
 
+    /** Estas pruebas usan funciones de Pro: se prueban con Pro activo (en cualquier variante). */
+    @org.junit.Before
+    fun conPro() {
+        com.eduardo.horarios.pro.Pro.setForTests(true)
+    }
+
     private var prefix = ""
 
     private fun shot(name: String) = T.shot(compose, "${prefix}_$name")
