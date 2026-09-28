@@ -33,14 +33,14 @@ object AutoBackupFiles {
 /**
  * Copia de seguridad automática: una al día (al abrir la app o a las 00:01), dentro de la app.
  * Se guardan las 7 últimas. Opcionalmente también en una carpeta elegida por el usuario
- * (Drive, Descargas…), siempre en el mismo archivo «Horarios-copia.json».
+ * (Drive, Descargas…), siempre en el mismo archivo «Horaria-copia.json».
  */
 object AutoBackup {
     private const val PREFS = "auto_backup"
     private const val KEY_ENABLED = "enabled"
     private const val KEY_FOLDER = "folder"
     private const val KEY_FOLDER_ERROR = "folder_error"
-    const val FOLDER_FILE = "Horarios-copia.json"
+    const val FOLDER_FILE = "Horaria-copia.json"
     private val mutex = Mutex()
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)

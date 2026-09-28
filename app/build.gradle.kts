@@ -59,6 +59,9 @@ android {
         }
         create("play") {
             dimension = "store"
+            // En Google Play la app es «Horaria» de Nido Studio. Este nombre de paquete no se puede
+            // cambiar una vez publicada (la variante GitHub sigue con com.eduardo.horarios).
+            applicationId = "com.nidostudio.horaria"
             buildConfigField("boolean", "SELF_UPDATE", "false")
         }
     }

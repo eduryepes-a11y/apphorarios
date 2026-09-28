@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Horarios</string>
-    <string name="widget_name">Horarios · Hoy</string>
+    <string name="app_name">Horaria</string>
+    <string name="widget_name">Horaria · Hoy</string>
     <string name="widget_description">Lo que tienes ahora y lo que viene hoy</string>
     <string name="accept">Aceptar</string>
     <string name="add">Añadir</string>
@@ -112,7 +112,7 @@
     <string name="notif_test_title">✅ ¡Los avisos funcionan!</string>
     <string name="notif_test_alarm">La alarma de prueba ha llegado a su hora.</string>
     <string name="notif_test_now">Esta es una notificación de prueba.</string>
-    <string name="notif_updated_title">✅ Horarios actualizada a la versión %1$s</string>
+    <string name="notif_updated_title">✅ Horaria actualizada a la versión %1$s</string>
     <string name="notif_updated_text">Toca para abrirla.</string>
     <string name="notif_starts_now">Empieza ahora · %1$s</string>
     <string name="notif_starts_in">Empieza en %1$s · %2$s</string>
@@ -170,7 +170,7 @@
     <string name="diag_open_app_settings">Abrir ajustes de la app</string>
     <string name="tip_xiaomi">En Xiaomi: Ajustes de la app › activa «Inicio automático» y en «Ahorro de batería» elige «Sin restricciones». Activa también el «Modo alarma» de arriba.</string>
     <string name="tip_samsung">En Samsung: Ajustes de la app › Batería › «Sin restricciones». Revisa también que la app no esté en «Aplicaciones en suspensión» (Ajustes › Mantenimiento › Batería › Límites de uso en segundo plano).</string>
-    <string name="tip_huawei">En Huawei/Honor: Ajustes › Batería › Inicio de aplicaciones › Horarios › «Gestionar manualmente» y activa las tres opciones. Activa también el «Modo alarma».</string>
+    <string name="tip_huawei">En Huawei/Honor: Ajustes › Batería › Inicio de aplicaciones › Horaria › «Gestionar manualmente» y activa las tres opciones. Activa también el «Modo alarma».</string>
     <string name="tip_oppo">En Oppo/Realme/OnePlus/Vivo: Ajustes de la app › Uso de batería › permite «Actividad en segundo plano» e «Inicio automático». Activa también el «Modo alarma».</string>
     <string name="tip_generic">Ajustes de la app › Batería › «Sin restricciones». Si aun así no llegan, activa el «Modo alarma».</string>
     <string name="widget_tap_to_create">Toca para crear un horario</string>
@@ -193,7 +193,7 @@
     <string name="update_ready_text">Pulsa «Instalar» y confirma «Actualizar» en la ventana de Android. Tus horarios se mantienen.</string>
     <string name="update_install">Instalar</string>
     <string name="update_check">Buscar</string>
-    <string name="app_version">Horarios %1$s</string>
+    <string name="app_version">Horaria %1$s</string>
     <string name="settings_appearance">Apariencia</string>
     <string name="settings_theme">Tema</string>
     <string name="theme_system">Sistema</string>
@@ -220,14 +220,14 @@
     <string name="settings_notifications_sub">Permisos, pruebas e historial de avisos</string>
     <string name="settings_about">Acerca de</string>
     <string name="share_title">Compartir horario</string>
-    <string name="share_text">Te paso mi horario «%1$s». Ábrelo con la app Horarios para importarlo.</string>
+    <string name="share_text">Te paso mi horario «%1$s». Ábrelo con la app Horaria para importarlo.</string>
     <string name="import_backup_title">Restaurar copia de seguridad</string>
     <string name="import_add">Añadir</string>
     <string name="import_replace">Reemplazar todo</string>
     <string name="import_schedule_title">Importar «%1$s»</string>
     <string name="import_button">Importar</string>
     <string name="import_invalid_title">Archivo no válido</string>
-    <string name="import_invalid_text">Este archivo no es un horario ni una copia de seguridad de Horarios.</string>
+    <string name="import_invalid_text">Este archivo no es un horario ni una copia de seguridad de Horaria.</string>
     <string name="stats_no_schedule">Activa un horario para ver tus estadísticas.</string>
     <string name="stats_7_days">7 días</string>
     <string name="stats_28_days">28 días</string>
@@ -346,7 +346,7 @@
     <string name="weekly_summary_title">Resumen semanal</string>
     <string name="weekly_summary_text">El domingo a las 19:00, un aviso con tu semana: horas, hábitos cumplidos y retrasos.</string>
     <string name="summary_channel_name">Resumen semanal</string>
-    <string name="summary_title">Tu semana en Horarios 📊</string>
+    <string name="summary_title">Tu semana en Horaria 📊</string>
     <string name="summary_text">%1$s de actividades · hábitos %2$d de %3$d · %4$s</string>
     <string name="summary_no_delays">sin retrasos</string>
     <string name="yesterday">Ayer</string>
@@ -387,7 +387,7 @@
     <string name="week_change_title">¿Qué semana es esta?</string>
     <string name="week_change_text">Elige la letra que tiene esta semana en tu colegio o trabajo. Las demás semanas se ajustan solas y las actividades de cada letra pasan a sus semanas.</string>
     <string name="week_word">Semana</string>
-    <string name="pro_title">Horarios Pro</string>
+    <string name="pro_title">Horaria Pro</string>
     <string name="pro_b_schedules">Horarios ilimitados (gratis: 2)</string>
     <string name="pro_b_alternate">Semanas alternas: A/B y ciclos de 3 o 4 semanas</string>
     <string name="pro_b_rotation">Turnos por días (4 sí, 4 no…)</string>
@@ -427,7 +427,7 @@
     <string name="stats_consistency_pro_title">Constancia</string>
     <string name="stats_consistency_pro_text">El calendario de tus últimas 12 semanas, día a día, es de Pro.</string>
     <string name="auto_backup_folder_paused">Sin Pro, la copia solo se guarda en el móvil (no en la carpeta).</string>
-    <string name="pro_active_title">Horarios Pro activo</string>
+    <string name="pro_active_title">Horaria Pro activo</string>
     <string name="pro_active_text">Gracias por apoyar la app. Toca para gestionar la suscripción.</string>
     <string name="pro_card_title">Hazte Pro</string>
     <string name="pro_card_text">Semanas alternas, turnos, horarios ilimitados y más.</string>
