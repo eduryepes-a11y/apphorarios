@@ -199,12 +199,13 @@ class ProRulesTest {
     }
 
     @Test
-    fun cachedProExpiresAfterTwoWeeks() {
+    fun cachedProExpiresAfterThreeDays() {
         val day = 24L * 60 * 60 * 1000
         val now = 100 * day
         assertTrue(ProRules.isCacheFresh(now - day, now))
-        assertTrue(ProRules.isCacheFresh(now - 14 * day, now))
-        assertFalse(ProRules.isCacheFresh(now - 15 * day, now))
+        assertTrue(ProRules.isCacheFresh(now - 3 * day, now))
+        assertFalse(ProRules.isCacheFresh(now - 3 * day - 1, now))
+        assertFalse(ProRules.isCacheFresh(now - 14 * day, now))
         assertFalse(ProRules.isCacheFresh(0, now)) // nunca comprobado
         assertFalse(ProRules.isCacheFresh(now + day, now)) // reloj cambiado hacia atrás
     }

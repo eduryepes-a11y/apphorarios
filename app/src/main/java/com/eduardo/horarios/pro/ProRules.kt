@@ -131,8 +131,12 @@ object ProRules {
 
     fun confirmsLapse(consecutiveNegatives: Int): Boolean = consecutiveNegatives >= LAPSE_CONFIRMATIONS
 
-    /** Días que se fía de un «Pro activo» guardado sin volver a comprobarlo con Google Play. */
-    const val CACHE_DAYS = 14
+    /**
+     * Días que se fía de un «Pro activo» guardado sin volver a comprobarlo con Google Play (por ejemplo,
+     * sin internet). Corto a propósito: la app no sabe cuándo acaba el mes pagado, así que quitar internet
+     * al final de la suscripción da como mucho estos días de más.
+     */
+    const val CACHE_DAYS = 3
 
     fun isCacheFresh(verifiedAt: Long, now: Long): Boolean =
         verifiedAt in 1..now && now - verifiedAt <= CACHE_DAYS * 24L * 60 * 60 * 1000
