@@ -48,11 +48,14 @@ object Pro {
             .putLong(KEY_VERIFIED_AT, System.currentTimeMillis())
             .apply()
         _state.value = ProState(active, known = true)
+        // Recién comprado (o renovado): la hoja de Pro, si estaba abierta, ya no hace falta
+        if (active) Paywall.close()
     }
 
     fun setForTests(active: Boolean) {
         testOverride = active
         _state.value = ProState(active, known = true)
+        if (active) Paywall.close()
     }
 }
 

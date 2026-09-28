@@ -35,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -85,10 +86,11 @@ fun Context.findActivity(): Activity? {
 /** Hoja «Horarios Pro»: se abre con [Paywall.show] desde cualquier pantalla. */
 @Composable
 fun PaywallHost() {
-    val reason by Paywall.open.collectAsStateWithLifecycle()
+    // collectAsState (sin esperar al ciclo de vida): la hoja puede abrirse encima de otro diálogo
+    val reason by Paywall.open.collectAsState()
     val r = reason ?: return
     val context = LocalContext.current
-    val pro by Pro.state.collectAsStateWithLifecycle()
+    val pro by Pro.state.collectAsState()
     val offer by ProBilling.offer.collectAsStateWithLifecycle()
     val status by ProBilling.status.collectAsStateWithLifecycle()
     // Si se acaba de comprar, se cierra sola
