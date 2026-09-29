@@ -80,6 +80,13 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
+    // Google Play parte el .aab por idiomas y solo instala el del móvil. Como la app deja elegir
+    // idioma dentro de Ajustes, hay que incluir todos: si no, al elegir inglés en un móvil en español
+    // solo se traduce lo que viene del sistema (la fecha) y el resto sigue en español.
+    bundle {
+        language { enableSplit = false }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
